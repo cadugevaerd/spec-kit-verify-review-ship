@@ -1,0 +1,48 @@
+# Verify Review Ship configuration
+# Copy to .specify/extensions/verify-review-ship/verify-review-ship-config.yml and customize.
+
+verify:
+  # Hook mode preference for after_implement.
+  # Current MVP registers the hook as optional for broad compatibility.
+  after_implement: "optional" # optional | automatic | disabled
+
+  # Refuse to continue if required Spec Kit feature artifacts are missing.
+  require_spec_artifacts: true
+
+  # If true, ask the agent to inspect git status and flag unrelated work.
+  require_clean_worktree: false
+
+  # Gate categories. The command asks the agent to discover the project-specific commands
+  # from package.json, pyproject.toml, Makefile, CI config, or README.
+  run_tests: true
+  run_build: true
+  run_lint: true
+  run_typecheck: true
+
+  # Optional explicit commands. Leave empty to auto-detect.
+  commands:
+    tests: ""
+    build: ""
+    lint: ""
+    typecheck: ""
+
+review:
+  include_correctness: true
+  include_readability: true
+  include_architecture: true
+  include_security: true
+  include_performance: true
+  severity_blocks_ship:
+    - "Critical"
+
+ship:
+  require_verify_report: true
+  require_review_report: true
+  require_rollback_plan: true
+  require_monitoring_notes: true
+  default_decision_on_critical: "NO-GO"
+
+output:
+  # Suggested report locations; commands should use the active feature dir when available.
+  directory: ".specify/reports"
+  write_markdown_reports: true

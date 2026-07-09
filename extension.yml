@@ -1,0 +1,72 @@
+schema_version: "1.0"
+
+extension:
+  id: "verify-review-ship"
+  name: "Verify Review Ship"
+  version: "0.1.0"
+  description: "Adds verify, review, and ship quality gates to Spec Kit workflows."
+  category: "process"
+  effect: "read-only"
+  author: "Carlos Eduardo Gevaerd Araujo"
+  repository: "https://github.com/cadugevaerd/spec-kit-verify-review-ship"
+  license: "MIT"
+  homepage: "https://github.com/cadugevaerd/spec-kit-verify-review-ship"
+
+requires:
+  speckit_version: ">=0.1.0"
+  commands:
+    - "speckit.implement"
+    - "speckit.analyze"
+
+provides:
+  commands:
+    - name: "speckit.verify-review-ship.verify"
+      file: "commands/verify.md"
+      description: "Verify implementation against Spec Kit artifacts and project gates."
+      aliases: ["speckit.verify-review-ship.v"]
+    - name: "speckit.verify-review-ship.review"
+      file: "commands/review.md"
+      description: "Run a five-axis code review for current changes."
+      aliases: ["speckit.verify-review-ship.r"]
+    - name: "speckit.verify-review-ship.ship"
+      file: "commands/ship.md"
+      description: "Synthesize verify and review evidence into a ship go/no-go decision."
+      aliases: ["speckit.verify-review-ship.s"]
+  config:
+    - name: "verify-review-ship-config.yml"
+      template: "config-template.yml"
+      description: "Verification, review, and ship gate configuration."
+      required: false
+
+hooks:
+  after_implement:
+    command: "speckit.verify-review-ship.verify"
+    priority: 10
+    optional: true
+    prompt: "Run verify gate after implementation?"
+    description: "Checks implementation completeness and project verification gates after /speckit.implement."
+tags:
+  - "quality"
+  - "review"
+  - "shipping"
+  - "workflow"
+  - "agent-skills"
+
+defaults:
+  verify:
+    after_implement: "optional"
+    require_clean_worktree: false
+    run_tests: true
+    run_build: true
+    run_lint: true
+    run_typecheck: true
+    require_spec_artifacts: true
+  review:
+    include_security: true
+    include_performance: true
+    severity_blocks_ship:
+      - "Critical"
+  ship:
+    require_rollback_plan: true
+    default_decision_on_critical: "NO-GO"
+    require_monitoring_notes: true
