@@ -6,6 +6,10 @@ A Spec Kit extension that adds post-build quality gates inspired by [addyosmani/
 - `/speckit.verify-review-ship.review`
 - `/speckit.verify-review-ship.ship`
 
+## Upstream Project
+
+This extension is built for the original [GitHub Spec Kit](https://github.com/github/spec-kit) project and its official extension system. It is not a fork or replacement for Spec Kit; it adds final quality gates to the existing Spec-Driven Development workflow.
+
 It integrates those gates with the Spec Kit artifact flow:
 
 ```text
@@ -81,7 +85,8 @@ specify extension list
 ### From release archive
 
 ```bash
-specify extension add --from https://github.com/cadugevaerd/spec-kit-verify-review-ship/archive/refs/tags/v0.1.0.zip
+specify extension add verify-review-ship \
+  --from https://github.com/cadugevaerd/spec-kit-verify-review-ship/archive/refs/tags/v0.1.0.zip
 ```
 
 ## Hooks
@@ -106,7 +111,7 @@ Use it to set explicit commands for tests/build/lint/typecheck or tune gate beha
 
 ## Design Notes
 
-This extension intentionally uses Spec Kit's extension architecture instead of Claude/Codex-specific plugin formats:
+This extension intentionally uses the original GitHub Spec Kit extension architecture instead of Claude/Codex-specific plugin formats:
 
 - `extension.yml` manifest
 - namespaced commands: `speckit.verify-review-ship.*`
