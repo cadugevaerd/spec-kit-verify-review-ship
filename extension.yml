@@ -60,9 +60,13 @@ defaults:
     run_typecheck: true
     require_spec_artifacts: true
   review:
+    include_correctness: true
+    include_readability: true
+    include_architecture: true
     include_security: true
     include_performance: true
-    severity_blocks_ship: ["Critical"]
+    validate_constitution: true
+    severity_blocks_ship: ["Critical", "Important"]
   ship:
     require_rollback_plan: true
     default_decision_on_critical: "NO-GO"

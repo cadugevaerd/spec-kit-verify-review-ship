@@ -35,7 +35,7 @@ Execution mode: PARALLEL | SEQUENTIAL FALLBACK
 ```
 
 - When available, create **one fresh, read-only reviewer per atomic review item**; dispatch independent items in bounded parallel batches. A batch never combines items: each item has one agent.
-- When unavailable or unknown, the primary agent reviews the same items sequentially and marks `SEQUENTIAL FALLBACK`.
+- When unavailable or unknown, use sequential fallback only when `orchestration.require_subagents` is `false`; otherwise return `BLOCKED` and report the unavailable/unknown discovery evidence.
 - Each reviewer receives only its item, scope, and relevant artifact excerpt. It returns exact `file:line`, test/gate, or artifact evidence, severity, and a concrete fix for Critical/Important findings. It must not edit, stage, commit, deploy, or issue the final verdict.
 - The primary agent reconciles conflicts against source evidence and owns the verdict.
 
