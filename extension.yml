@@ -3,7 +3,7 @@ schema_version: "1.0"
 extension:
   id: "verify-review-ship"
   name: "Verify Review Ship"
-  version: "0.1.0"
+  version: "0.2.0"
   description: "Adds verify, review, and ship quality gates to Spec Kit workflows."
   category: "process"
   effect: "read-only"
@@ -14,9 +14,7 @@ extension:
 
 requires:
   speckit_version: ">=0.1.0"
-  commands:
-    - "speckit.implement"
-    - "speckit.analyze"
+  commands: ["speckit.implement", "speckit.analyze"]
 
 provides:
   commands:
@@ -45,14 +43,14 @@ hooks:
     optional: true
     prompt: "Run verify gate after implementation?"
     description: "Checks implementation completeness and project verification gates after /speckit.implement."
-tags:
-  - "quality"
-  - "review"
-  - "shipping"
-  - "workflow"
-  - "agent-skills"
+
+tags: ["quality", "review", "shipping", "workflow", "agent-skills"]
 
 defaults:
+  orchestration:
+    discover_subagents: true
+    require_subagents: false
+    max_parallel_agents: 4
   verify:
     after_implement: "optional"
     require_clean_worktree: false
@@ -64,8 +62,7 @@ defaults:
   review:
     include_security: true
     include_performance: true
-    severity_blocks_ship:
-      - "Critical"
+    severity_blocks_ship: ["Critical"]
   ship:
     require_rollback_plan: true
     default_decision_on_critical: "NO-GO"

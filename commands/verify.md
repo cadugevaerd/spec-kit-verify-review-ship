@@ -4,168 +4,117 @@ description: "Verify implementation against Spec Kit artifacts and project gates
 
 # Verify Gate
 
-Use this after `/speckit.implement` or before `/speckit.verify-review-ship.ship` when you need evidence that the feature is complete and executable.
+Use after `/speckit.implement` or before `/speckit.verify-review-ship.ship` to produce evidence that the active feature is complete and executable.
 
 ## User Input
 
 $ARGUMENTS
 
-## Purpose
-
-Verify that the current implementation:
-
-1. Satisfies the active Spec Kit feature artifacts.
-2. Has a credible project-specific verification story.
-3. Does not hide incomplete work behind passing superficial checks.
-4. Produces a concise report that `/speckit.verify-review-ship.review` and `/speckit.verify-review-ship.ship` can consume.
-
 ## Required Context Discovery
 
-1. Resolve the Spec Kit project root. Prefer the directory containing `.specify/`.
-2. Resolve the active feature using, in order:
-   - `SPECIFY_FEATURE_DIRECTORY`
-   - `.specify/feature.json`
-   - `SPECIFY_FEATURE`
-   - current branch name if it matches a Spec Kit feature directory
-   - explicit path/name from `$ARGUMENTS`
-3. Read available feature artifacts:
-   - `spec.md`
-   - `plan.md`
-   - `tasks.md`
-   - `checklists/*`
-   - `quickstart.md`
-   - `contracts/*`
-   - `data-model.md`
-   - `research.md`
-4. Read extension config if present:
-   - `.specify/extensions/verify-review-ship/verify-review-ship-config.yml`
-   - local override `.specify/extensions/verify-review-ship/verify-review-ship-config.local.yml`
+1. Resolve the Spec Kit project root (prefer `.specify/`) and active feature using `SPECIFY_FEATURE_DIRECTORY`, `.specify/feature.json`, `SPECIFY_FEATURE`, matching branch, then `$ARGUMENTS`.
+2. Read available `spec.md`, `plan.md`, `tasks.md`, `checklists/*`, `quickstart.md`, `contracts/*`, `data-model.md`, `research.md`, and the extension config/local override.
+3. If required artifacts are missing, stop with `VERIFY: BLOCKED` and list every missing path.
 
-If required Spec Kit artifacts are missing, stop with `VERIFY: BLOCKED` and list exactly what is missing.
+## Pre-flight: validation-agent discovery
+
+Before validating, discover whether the current host exposes usable subagents/workers through its documented capability or agent registry. Do not assume a provider-specific API, model, or role.
+
+Record:
+
+```text
+Subagents: AVAILABLE | UNAVAILABLE | UNKNOWN
+Discovery evidence: <capability / registry result / reason>
+Parallel capacity: <number or unknown>
+Execution mode: PARALLEL | SEQUENTIAL FALLBACK
+```
+
+- When subagents are available, create **one fresh, read-only validation subagent per atomic ledger item**. Dispatch independent items in parallel up to the host capacity; use bounded batches until every item is checked. A batch never combines items: one item always has one agent.
+- When unavailable or discovery is inconclusive, the primary agent validates the same ledger sequentially and marks `SEQUENTIAL FALLBACK`. This is not a PASS by default.
+- A validator receives only its target paths, applicable artifact excerpt, and expected evidence. It must not edit, stage, commit, deploy, or issue the final verdict.
+- The primary agent reconciles results and verifies contradictions against source evidence.
 
 ## Verification Procedure
 
-### 1. Artifact completeness
+### 1. Build the atomic validation ledger
 
-Check:
+Enumerate the ledger before dispatch. Include one item each for:
 
-- `tasks.md` exists and has no unchecked implementation tasks unless explicitly out of scope.
-- `spec.md` requirements have corresponding implementation evidence.
-- `plan.md` technical decisions are reflected in the codebase.
-- `quickstart.md` validation scenarios were exercised or have a stated reason not to run.
-- Any `[NEEDS CLARIFICATION]` markers are resolved or explicitly accepted as risk.
+- every present required artifact (`spec.md`, `plan.md`, `tasks.md`, every checklist, and `quickstart.md` when present);
+- worktree/diff integrity;
+- every discovered project gate (`tests`, `build`, `lint`, `typecheck`, `format`, `security`, and applicable manual gates);
+- every requirement and implementation-task traceability entry.
 
-### 2. Worktree and diff inspection
+One validator checks exactly one ledger item; never assign it multiple artifacts, gates, requirements, or tasks.
 
-Inspect current changes/recent commits using the project’s available VCS tooling.
+### 2. Artifact, diff, and gate validation
 
-Report:
+Validate artifacts for task completion, requirement/code evidence, reflected plan decisions, exercised/justified quickstart scenarios, and resolved/accepted `[NEEDS CLARIFICATION]` markers.
 
-- changed files
-- likely feature files vs unrelated files
-- generated/build artifacts accidentally included
-- secrets or environment files accidentally modified
+For the dedicated diff item, report changed files, feature vs unrelated files, generated artifacts, and accidental secrets/environment-file changes. Never stage or commit.
 
-Do not blindly stage or commit anything.
-
-### 3. Project gate discovery
-
-Discover canonical commands from the project, preferring this order:
-
-1. CI workflow definitions
-2. `Makefile` / `justfile` / task runner config
-3. package manifests (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.)
-4. README/contribution docs
-5. obvious framework defaults only if no project command exists
-
-Identify commands for:
-
-- tests
-- build/compile
-- lint
-- typecheck/static analysis
-- formatting check
-- security/dependency audit when available
-
-### 4. Execute or request evidence
-
-Run safe local gates when the agent has terminal/tool access and the user did not forbid execution.
-
-For each gate, record:
+Discover canonical project commands in this order: CI, task runner, manifests, docs, then framework defaults. Run safe local gates unless forbidden. Record each:
 
 ```text
-Gate: tests | build | lint | typecheck | security | manual
+Gate: tests | build | lint | typecheck | format | security | manual
 Command: <exact command or "not found">
 Result: PASS | FAIL | SKIPPED | BLOCKED
-Evidence: <short output summary, file/report path, or reason>
+Evidence: <output summary, report path, or reason>
+Validator: <subagent id/name or primary fallback>
 ```
 
-If a gate fails, do not continue to a GO result. Summarize failure and recommended next fix.
+A failed gate prevents `PASS`.
 
-### 5. Spec-to-code traceability
+### 3. Spec-to-code traceability
 
-Create a compact traceability table:
+Each requirement and implementation task receives one ledger item and one validator. Aggregate:
 
 ```markdown
-| Requirement / Task | Evidence | Status |
-|---|---|---|
-| FR-001 ... | file/test/command | PASS/FAIL/GAP |
+| Requirement / Task | Evidence | Status | Validator |
+|---|---|---|---|
+| FR-001 ... | file/test/command | PASS/FAIL/GAP | <id/name> |
 ```
 
-### 6. Save report when possible
+### 4. Report
 
-If file writes are allowed, save a report at:
-
-```text
-.specify/reports/verify-review-ship/verify.md
-```
-
-If an active feature directory is clear, also prefer:
-
-```text
-<feature-dir>/verify.md
-```
-
-## Output Format
+Consolidate every result; never infer a pass from another item. If writes are allowed, save `.specify/reports/verify-review-ship/verify.md` and also `<feature-dir>/verify.md` when clear.
 
 ```markdown
 ## Verify Report
 
 **Verdict:** PASS | FAIL | BLOCKED
 **Feature:** <feature id/path or unknown>
-**Scope:** <changed files / recent commits / user-specified target>
+**Scope:** <changed files / commits / target>
+
+### Validation Execution
+- Subagents: AVAILABLE/UNAVAILABLE/UNKNOWN — <evidence>
+- Execution mode: PARALLEL/SEQUENTIAL FALLBACK
+- Parallel capacity: <number or unknown>
+- Ledger: <total>; <passed> PASS, <failed> FAIL, <blocked> BLOCKED, <skipped> SKIPPED
 
 ### Artifact Status
-- Spec: PASS/FAIL/BLOCKED
-- Plan: PASS/FAIL/BLOCKED
-- Tasks: PASS/FAIL/BLOCKED
-- Clarifications/checklists: PASS/FAIL/BLOCKED
-
-### Gate Results
-| Gate | Command | Result | Evidence |
+| Item | Status | Evidence | Validator |
 |---|---|---|---|
 
+### Gate Results
+| Gate | Command | Result | Evidence | Validator |
+|---|---|---|---|---|
+
 ### Traceability
-| Requirement / Task | Evidence | Status |
-|---|---|---|
+| Requirement / Task | Evidence | Status | Validator |
+|---|---|---|---|
 
 ### Gaps / Failures
-- [Critical/Important] <specific gap and fix recommendation>
-
-### Verification Story
-- Tests run: <commands>
-- Build run: <commands>
-- Manual checks: <what was checked>
-- Not run / skipped: <why>
+- [Critical/Important] <gap and concrete fix>
 
 ### Next Action
-- If PASS: run `/speckit.verify-review-ship.review`
-- If FAIL/BLOCKED: fix listed gaps, then rerun verify
+- PASS: run `/speckit.verify-review-ship.review`
+- FAIL/BLOCKED: fix listed gaps, then rerun verify
 ```
 
 ## Decision Rules
 
-- `PASS` only when required artifacts exist, required tasks are complete, and all discovered mandatory gates pass.
-- `FAIL` when artifacts exist but implementation/gates have defects.
-- `BLOCKED` when required context, tools, or decisions are missing.
-- Never claim a gate passed without exact evidence.
+- `PASS` requires required artifacts, completed tasks, evidence for every required ledger item, and passing mandatory gates.
+- `FAIL` means implementation/gates have defects; `BLOCKED` means required context, tools, or decisions are missing.
+- Never claim a gate/item passed without exact evidence.
+- Lack of subagents uses sequential fallback unless project config requires subagents.
