@@ -39,6 +39,18 @@ ship:
   require_rollback_plan: true
   require_monitoring_notes: true
   default_decision_on_critical: "NO-GO"
+  # A GO decision performs the merge transaction unless --dry-run is supplied.
+  auto_merge_on_go: true
+  remote: "origin"
+  # Empty means discover from <remote>/HEAD.
+  base_branch: ""
+  merge_strategy: "no-ff"
+  require_clean_worktree: true
+  rerun_integration_gates: true
+  push_base_branch: true
+  remove_linked_worktree: true
+  delete_local_work_branch: true
+  delete_remote_work_branch: true
 
 output:
   directory: ".specify/reports"
