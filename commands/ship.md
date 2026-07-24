@@ -1,10 +1,10 @@
 ---
-description: "Synthesize verify and review evidence into a ship go/no-go decision"
+description: "Decide readiness, merge a GO change into the primary branch, clean its worktree/branch, and summarize delivery"
 ---
 
-# Ship Gate
+# Ship, Merge, Cleanup, and Delivery Summary
 
-Adapted from Addy Osmani's `agent-skills` `/ship` workflow and integrated with Spec Kit artifacts.
+Run after `/speckit.verify-review-ship.verify` and `/speckit.verify-review-ship.review`.
 
 ## User Input
 
@@ -12,191 +12,156 @@ $ARGUMENTS
 
 ## Purpose
 
-Produce a single production-readiness decision:
+Complete the delivery transaction with one terminal status:
 
 ```text
-GO | NO-GO
+MERGED | MERGED_WITH_CLEANUP_WARNINGS | NO-GO | BLOCKED | DRY-RUN READY
 ```
 
-This command does **not** deploy by itself. It aggregates evidence, identifies blockers, and creates a rollback/monitoring plan before a human or deployment automation proceeds.
+A successful `GO` authorizes this command to merge the current work branch into the repository's primary branch, push the primary branch, safely clean the completed worktree/branch, and return a concise delivery summary. It does **not** deploy an application or infrastructure.
+
+Use `--dry-run` in `$ARGUMENTS` to produce the decision and exact intended operations without changing local or remote Git state. Optional arguments may explicitly name `--base BRANCH` or `--remote REMOTE`; otherwise use extension configuration and then the remote default branch.
 
 ## Expected Inputs
 
-Prefer consuming, in order:
+Consume, in order:
 
-1. Active Spec Kit feature artifacts:
-   - `spec.md`
-   - `plan.md`
-   - `tasks.md`
-   - `quickstart.md`
-   - contracts/data model/checklists if present
+1. Active Spec Kit artifacts: `spec.md`, `plan.md`, `tasks.md`, `quickstart.md`, contracts, data model, and checklists when present.
 2. `/speckit.verify-review-ship.verify` report.
 3. `/speckit.verify-review-ship.review` report.
-4. Current diff/staged changes/recent commits.
-5. Project release/deploy docs and CI status if available.
+4. Current Git repository, worktree, branch, diff, commits, remotes, and primary branch.
+5. Project test/build/lint/typecheck, release, CI, rollback, and monitoring evidence.
 
-If verify/review reports are missing, run or ask for:
+If required verify/review evidence is missing, run those commands when possible; otherwise return `BLOCKED`. Never invent results.
+
+## Phase A — Readiness Decision
+
+Run independent Code Reviewer, Security Auditor, and Test Engineer perspectives in parallel when subagents are available, otherwise as isolated sequential passes.
+
+Validate at least:
+
+- requirements/tasks and changed behavior are covered;
+- mandatory tests, build, lint, and typecheck pass;
+- no unresolved Critical/Important review finding;
+- no Critical/High security issue or exposed secret;
+- performance, accessibility, infrastructure, migrations, documentation, monitoring, and rollback are addressed when applicable.
+
+Create the rollback plan before `GO`, including trigger, exact rollback steps, data/migration handling, post-rollback verification, and recovery objective.
+
+Decision rules:
+
+1. Unresolved Critical issue, High security issue, Constitution failure/block, missing rollback plan, or missing production-bound verification evidence => `NO-GO` or `BLOCKED`.
+2. `NO-GO` and `BLOCKED` perform **no merge, push, branch deletion, or worktree removal**.
+3. `GO` continues automatically to the Git integration transaction unless `--dry-run` is present.
+
+## Phase B — Git Pre-flight (fail closed)
+
+Before changing Git state, discover and record:
 
 ```text
-/speckit.verify-review-ship.verify
-/speckit.verify-review-ship.review
+repository root and Git common directory
+current worktree path and whether it is primary or linked
+work branch and immutable work HEAD
+target remote and primary branch
+remote primary HEAD and remote work-branch HEAD
+merge strategy and configured verification commands
 ```
 
-## Ship Procedure
+Apply every guard below:
 
-### Phase A — Independent specialist passes
+1. Require a Git repository, a named current branch, and no merge/rebase/cherry-pick/revert/bisect in progress. Detached HEAD => `BLOCKED`.
+2. Resolve the remote from `--remote`, then `ship.remote`; resolve the primary branch from `--base`, then `ship.base_branch`, then the remote symbolic `HEAD`. Never guess `main` when discovery is available.
+3. Require the work branch to differ from the primary branch and reject protected/reserved branches such as the primary branch itself.
+4. Require the worktree to be completely clean, including staged, unstaged, untracked, conflicted, and modified-submodule state. Do not stash, discard, commit, or delete user changes automatically.
+5. For `--dry-run`, perform remote discovery only with read-only queries such as `git ls-remote --symref <remote> HEAD` and `git ls-remote <remote> <refs>`. Do **not** fetch, prune, create/remove worktrees, checkout, merge, push, or update/delete any ref. After all local and remote read-only guards pass, return `DRY-RUN READY` with the exact planned operations and stop.
+6. For a real transaction, fetch the identified remote with pruning and require the remote primary branch to exist.
+7. If the work branch has an upstream, reject a behind or diverged branch. If a same-named remote work branch exists, record its exact HEAD for an atomic cleanup lease.
+8. Require every existing worktree that will be touched during cleanup to be clean. Do not use `git clean`, `reset --hard` on a user worktree, `branch -D`, `worktree remove --force`, or forced primary-branch pushes. The only permitted `--force-with-lease` is the exact-ref lease used for conditional deletion of the completed remote work branch in Phase D.
+9. Reconfirm that verify/review evidence corresponds to the recorded work HEAD. Stale evidence => `BLOCKED`.
+10. Allow only the configured merge strategies `no-ff` and `ff-only`; any other value => `BLOCKED`.
 
-Run three independent perspectives. If the current AI environment supports subagents/tools, execute them in parallel. If not, simulate the three perspectives in isolated sections and do not let one perspective depend on another.
+## Phase C — Isolated Integration Transaction
 
-#### 1. Code Reviewer perspective
+Do not merge directly inside a potentially shared primary worktree. Use a temporary detached integration worktree based on the fetched remote primary HEAD:
 
-Evaluate:
+1. Create a unique temporary integration worktree from `<remote>/<primary>` and record `base_before`.
+2. Merge the immutable work HEAD using the validated strategy: `--no-ff --no-edit` by default, or `--ff-only` when configured.
+3. On conflict, abort the merge, remove only the clean temporary integration worktree, preserve the work branch/worktree, and return `BLOCKED` with conflicted paths.
+4. In the integrated tree, rerun all mandatory configured test/build/lint/typecheck gates. A failed gate means `NO-GO`; remove the temporary integration worktree and preserve the work branch/worktree.
+5. Record `integrated_head`, verify `base_before` and the recorded work HEAD are its ancestors, and push exactly `integrated_head` to `refs/heads/<primary>` **without force**.
+6. A non-fast-forward/rejected push means the primary branch changed concurrently. Preserve the work branch/worktree, remove only the temporary integration worktree, fetch again, and return `BLOCKED`; never retry by force.
+7. Read the remote primary ref back and require it to equal `integrated_head`. Only this verified remote equality marks the merge complete.
 
-- correctness
-- readability
-- architecture
-- security notes already visible in code review
-- performance notes already visible in code review
+If the merge is verified remotely, cleanup failures must never roll back or hide the successful merge. Continue with warnings and finish as `MERGED_WITH_CLEANUP_WARNINGS` when necessary.
 
-Use the Review Gate five-axis standard.
+## Phase D — Safe Cleanup
 
-#### 2. Security Auditor perspective
+Cleanup starts only after the remote primary ref is verified at `integrated_head`.
 
-Evaluate:
+1. Remove the temporary integration worktree and temporary integration ref.
+2. For a **linked worktree** that still has the exact recorded work HEAD and is clean:
+   - change to a safe directory outside it;
+   - remove it with ordinary `git worktree remove` (never `--force`);
+   - prune only stale worktree metadata.
+3. For the **primary worktree**, never delete its directory. If possible, switch it to the updated primary branch and fast-forward it. If that branch is already checked out elsewhere, park the clean primary worktree at the verified integrated commit in detached mode and report this explicitly.
+4. Delete the local work branch only when it is no longer checked out anywhere and `git merge-base --is-ancestor <recorded-work-head> <integrated-head>` succeeds. Use `git branch -d`, never `-D`.
+5. Delete the same-named remote work branch only when it existed at pre-flight, its recorded commit is an ancestor of `integrated_head`, and a fresh `git ls-remote` still returns the exact recorded remote work HEAD. Perform an atomic compare-and-delete with:
 
-- OWASP Top 10 style issues
-- secrets and credentials
-- auth/authz
-- input validation and output encoding
-- dependency/supply-chain risk
-- infrastructure/config risk
-- AI/LLM-specific risks when applicable: prompt injection, excessive agency, unsafe tool calls, context leakage, untrusted model output
+   ```bash
+   git push --force-with-lease=refs/heads/<work-branch>:<recorded-remote-work-head> \
+     <remote> --delete <work-branch>
+   ```
 
-Promote any Critical/High security issue to ship blocker.
+   This exact-ref lease is the only permitted force option. If the ref advanced or the lease is rejected, preserve the branch and report `WARNING`; never retry with a broader lease or force. Re-read the remote ref after the operation and require it to be absent before reporting `DONE`.
+6. Re-read worktree registrations, local branches, the remote work branch, and remote primary HEAD. Report each cleanup action as `DONE`, `SKIPPED`, or `WARNING` with evidence.
 
-#### 3. Test Engineer perspective
+Never delete the primary branch, the repository's primary worktree, an unmerged branch, a dirty worktree, or a branch/ref that changed after pre-flight.
 
-Evaluate:
+## Phase E — Delivery Classification and Summary
 
-- test coverage for spec requirements
-- happy path, edge cases, error paths
-- integration/e2e needs
-- migration/data rollback coverage
-- manual smoke test requirements
+Classify the delivered work from Spec Kit artifacts, branch/commit conventions, and changed scope. Use one primary type:
 
-### Phase B — Launch readiness checklist
+```text
+PRODUCT | FEATURE | BUGFIX | SECURITY | REFACTOR | DOCUMENTATION | CHORE | OTHER
+```
 
-Check and summarize:
+If evidence is ambiguous, use `OTHER`; do not invent a product or feature label. Summarize what was delivered in business language, then the technical proof.
 
-#### Code Quality
-
-- all mandatory tests pass
-- build/lint/typecheck pass or have documented exception
-- review Critical/Important findings resolved or explicitly accepted
-
-#### Security
-
-- no Critical/High vulnerabilities
-- no secrets in code or logs
-- auth/authz and data boundaries covered
-
-#### Performance
-
-- no obvious N+1/unbounded operations
-- latency/bundle/database risks identified
-- Core Web Vitals considered for UI/web changes
-
-#### Accessibility, if UI change
-
-- keyboard navigation
-- screen reader semantics
-- focus management
-- contrast
-- error messages
-
-#### Infrastructure
-
-- environment variables documented and present
-- migrations planned and reversible where possible
-- feature flags/kill switch considered
-- health checks/logging/error reporting in place
-- monitoring dashboards/alerts identified
-
-#### Documentation
-
-- README/setup docs updated
-- API docs/contracts current
-- ADR/changelog/user docs updated where needed
-
-### Phase C — Decision and rollback
-
-Create a rollback plan before any GO decision.
-
-Rollback plan must include:
-
-- trigger conditions
-- rollback steps
-- database/data considerations
-- feature flag/kill switch steps, if applicable
-- verification after rollback
-- estimated recovery time objective
-
-## Output Format
+## Required Output
 
 ```markdown
-## Ship Decision: GO | NO-GO
+## Ship Result: MERGED | MERGED_WITH_CLEANUP_WARNINGS | NO-GO | BLOCKED | DRY-RUN READY
 
-**Feature:** <feature id/path or unknown>
-**Scope:** <diff/branch/release target>
-**Decision basis:** <verify/review reports + direct checks>
+### Delivered
+- Type: PRODUCT | FEATURE | BUGFIX | SECURITY | REFACTOR | DOCUMENTATION | CHORE | OTHER
+- Name: <feature/spec/title or concise inferred title>
+- Outcome: <what changed and why it matters>
+- Scope: <requirements/tasks/components delivered>
 
-### Blockers (must fix before ship)
-- [Source: verify/review/security/test/infra] <finding + file:line/evidence>
+### Quality Evidence
+- Verify: PASS/FAIL/BLOCKED — <report/ref>
+- Review: APPROVE/REQUEST CHANGES/BLOCKED — <report/ref>
+- Integration gates: <commands and real results>
+- Risks/rollback: <remaining risks and rollback summary>
 
-### Recommended Fixes (should fix before ship)
-- [Source] <finding + recommendation>
+### Merge
+- Work branch: <branch>@<recorded work HEAD>
+- Primary branch: <remote>/<branch>
+- Strategy: <strategy>
+- Before: <base_before>
+- Integrated: <integrated_head or not created>
+- Remote verification: PASS/FAIL/NOT RUN — <observed ref>
 
-### Acknowledged Risks
-- <risk> — Mitigation: <mitigation> — Owner: <owner if known>
-
-### Launch Checklist
-| Area | Status | Evidence / Notes |
+### Cleanup
+| Item | Status | Evidence / note |
 |---|---|---|
-| Code quality | PASS/FAIL/RISK | ... |
-| Security | PASS/FAIL/RISK | ... |
-| Performance | PASS/FAIL/RISK | ... |
-| Accessibility | PASS/FAIL/N/A/RISK | ... |
-| Infrastructure | PASS/FAIL/RISK | ... |
-| Documentation | PASS/FAIL/RISK | ... |
+| Temporary integration worktree/ref | DONE/SKIPPED/WARNING | ... |
+| Work worktree | DONE/SKIPPED/WARNING | ... |
+| Local work branch | DONE/SKIPPED/WARNING | ... |
+| Remote work branch | DONE/SKIPPED/WARNING | ... |
 
-### Rollback Plan
-- Trigger conditions: <signals>
-- Rollback procedure: <exact steps>
-- Data/migration handling: <notes>
-- Verification after rollback: <checks>
-- Recovery time objective: <target>
-
-### Specialist Reports
-
-#### Code Reviewer
-<summary>
-
-#### Security Auditor
-<summary>
-
-#### Test Engineer
-<summary>
-
-### Final Instruction
-- If GO: deployment may proceed only after human confirmation.
-- If NO-GO: fix blockers, rerun verify/review/ship.
+### Delivery Summary
+<3-7 concise bullets covering user/business outcome, important technical changes, verification, merge, cleanup, and any residual action>
 ```
 
-## Decision Rules
-
-1. Any unresolved Critical issue => default `NO-GO`.
-2. Any High security issue => default `NO-GO`.
-3. Missing rollback plan => `NO-GO`.
-4. Missing verification evidence for production-bound change => `NO-GO`.
-5. `GO` requires explicit evidence and still does not authorize deployment unless the user/deployment process confirms.
-6. Do not invent CI/deploy/monitoring results. If unavailable, mark as `RISK` or `BLOCKED`.
+For `NO-GO` or `BLOCKED`, include blockers and the exact safe resume point. For a verified merge with cleanup warnings, lead with the fact that delivery is already merged and list only the residual cleanup actions; never describe it as unmerged.

@@ -3,10 +3,10 @@ schema_version: "1.0"
 extension:
   id: "verify-review-ship"
   name: "Verify Review Ship"
-  version: "0.2.0"
-  description: "Adds verify, review, and ship quality gates to Spec Kit workflows."
+  version: "0.3.0"
+  description: "Adds verify and review quality gates plus transactional merge, cleanup, and delivery summary."
   category: "process"
-  effect: "read-only"
+  effect: "read-write"
   author: "Carlos Eduardo Gevaerd Araujo"
   repository: "https://github.com/cadugevaerd/spec-kit-verify-review-ship"
   license: "MIT"
@@ -28,12 +28,12 @@ provides:
       aliases: ["speckit.verify-review-ship.r"]
     - name: "speckit.verify-review-ship.ship"
       file: "commands/ship.md"
-      description: "Synthesize verify and review evidence into a ship go/no-go decision."
+      description: "Decide readiness, merge a GO change, clean its worktree/branch, and summarize delivery."
       aliases: ["speckit.verify-review-ship.s"]
   config:
     - name: "verify-review-ship-config.yml"
       template: "config-template.yml"
-      description: "Verification, review, and ship gate configuration."
+      description: "Verification, review, merge, cleanup, and ship configuration."
       required: false
 
 hooks:
@@ -44,7 +44,7 @@ hooks:
     prompt: "Run verify gate after implementation?"
     description: "Checks implementation completeness and project verification gates after /speckit.implement."
 
-tags: ["quality", "review", "shipping", "workflow", "agent-skills"]
+tags: ["quality", "review", "shipping", "merge", "cleanup", "workflow", "agent-skills"]
 
 defaults:
   orchestration:
@@ -68,6 +68,13 @@ defaults:
     validate_constitution: true
     severity_blocks_ship: ["Critical", "Important"]
   ship:
+    require_verify_report: true
+    require_review_report: true
     require_rollback_plan: true
-    default_decision_on_critical: "NO-GO"
     require_monitoring_notes: true
+    default_decision_on_critical: "NO-GO"
+    remote: "origin"
+    base_branch: ""
+    merge_strategy: "no-ff"
+    require_clean_worktree: true
+    rerun_integration_gates: true

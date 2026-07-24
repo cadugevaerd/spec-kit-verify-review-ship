@@ -39,6 +39,13 @@ ship:
   require_rollback_plan: true
   require_monitoring_notes: true
   default_decision_on_critical: "NO-GO"
+  remote: "origin"
+  # Empty means discover from <remote>/HEAD.
+  base_branch: ""
+  # Supported: no-ff | ff-only
+  merge_strategy: "no-ff"
+  require_clean_worktree: true
+  rerun_integration_gates: true
 
 output:
   directory: ".specify/reports"
