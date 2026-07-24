@@ -30,9 +30,9 @@ isolated merge candidate → integration gates → non-force push to primary
 → remote ref verification → safe worktree/branch cleanup → delivery summary
 ```
 
-The command discovers the remote primary branch, merges in an isolated temporary worktree, reruns configured gates, pushes without force, verifies the remote commit, and only then removes the completed linked worktree and local/remote work branches. Dirty, diverged, detached, conflicting, stale-evidence, or concurrently changed states fail closed without deleting work.
+The command discovers the remote primary branch, merges in an isolated temporary worktree, reruns configured gates, pushes the primary branch without force, verifies the remote commit, and only then removes the completed linked worktree and local/remote work branches. Remote work-branch deletion uses an exact expected-ref lease so a concurrently advanced branch is preserved. Dirty, diverged, detached, conflicting, stale-evidence, or concurrently changed states fail closed without deleting work.
 
-Use `$ARGUMENTS` with `--dry-run` to preview the decision and exact Git operations without changing state. A successful summary classifies the delivery as product, feature, bugfix, security, refactor, documentation, chore, or other.
+Use `$ARGUMENTS` with `--dry-run` to preview the decision and exact Git operations through read-only local checks and `ls-remote` queries; dry-run does not fetch, prune, merge, push, or update/delete refs. A successful summary classifies the delivery as product, feature, bugfix, security, refactor, documentation, chore, or other.
 
 > `ship` merges and cleans Git state; it does not deploy the application or infrastructure.
 
@@ -44,7 +44,7 @@ Copy `config-template.yml` to:
 .specify/extensions/verify-review-ship/verify-review-ship-config.yml
 ```
 
-Use it to require subagents, tune parallel capacity, define test/build/lint/typecheck commands, configure review/Constitution validation, select the remote/base branch, and control post-merge cleanup.
+Use it to require subagents, tune parallel capacity, define test/build/lint/typecheck commands, configure review/Constitution validation, and select the remote, base branch, and merge strategy.
 
 ## Installation
 
