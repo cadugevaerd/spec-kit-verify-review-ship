@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1 - Unreleased
+
+### Changed
+
+- Adopt the official `/speckit.converge` loop as the sole authority for spec/plan/tasks-to-code completeness.
+- `verify` now consumes fresh Converge evidence and focuses on executable gates, contracts, quickstart, and diff hygiene.
+- `review` now focuses on runtime correctness, test quality, readability, architecture, security, and performance without re-auditing completeness or every Constitution item.
+- `ship` consumes fresh Converge/Verify/Review evidence instead of launching duplicate reviewer, security, and test passes.
+- Constitution and Spec Kit artifact learning changes now require `analyze → converge` before Verify and Review.
+- Removed the post-implement extension hook; the extension now exposes three commands and zero hooks.
+- Minimum supported Spec Kit version is `0.11.2` because `/speckit.converge` is required.
+
 ## 0.4.0 - 2026-07-26
 
 ### Added

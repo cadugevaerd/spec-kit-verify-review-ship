@@ -1,133 +1,69 @@
 ---
-description: "Run a five-axis and Constitution-aware code review for the current Spec Kit feature or change"
+description: "Review technical risk after Converge and Verify evidence"
 ---
 
 # Review Gate
 
-Run after `/speckit.verify-review-ship.verify` or before `/speckit.verify-review-ship.ship`.
+Run after `/speckit.verify-review-ship.verify` with a fresh `PASS` report.
 
 ## User Input
 
 $ARGUMENTS
 
-## Purpose
+## Boundary with Official Converge
 
-Review the current change for Correctness, Readability, Architecture, Security, and Performance, then validate **every actionable item** in the active Spec Kit Constitution.
+`/speckit.converge` owns whether the current code fulfills `spec.md`, `plan.md`, and `tasks.md`. This review owns technical quality and risk in the current diff.
 
-## Required Context Discovery
+This command **must not repeat requirement, task, or plan completeness** analysis and **must not perform a Constitution item-by-item audit**. A real technical finding may cite an applicable Constitution rule, but the rule is not independently re-audited here.
 
-1. Resolve the active feature as specified by `/speckit.verify-review-ship.verify`.
-2. Read `.specify/memory/constitution.md`, `spec.md`, `plan.md`, `tasks.md`, and any `verify.md` report.
-3. Inspect the diff/staged changes/recent commits, or the explicit PR, branch, commit, file, or feature directory in `$ARGUMENTS`.
-4. Review tests first.
+## Required Evidence
 
-If `.specify/memory/constitution.md` is missing, report `Constitution: BLOCKED`; do not claim full approval. If it has no actionable items, report that with evidence rather than inventing items.
+1. Consume fresh Converge `CONVERGED` and Verify `PASS` evidence with matching source fingerprints.
+2. Inspect current diff, tests, generated artifacts, and explicitly requested PR/branch/commit/files.
+3. If evidence is missing or stale, return `BLOCKED` with the safe resume command.
 
-## Pre-flight: review-agent discovery
+## Review Ledger
 
-Before fan-out, discover usable subagents/workers through the current host's documented capability or agent registry. Do not assume a provider-specific API, model, or role.
+Discover review workers when supported; otherwise use sequential fallback unless configuration requires workers. One read-only reviewer per independent item:
 
-```text
-Subagents: AVAILABLE | UNAVAILABLE | UNKNOWN
-Discovery evidence: <capability / registry result / reason>
-Parallel capacity: <number or unknown>
-Execution mode: PARALLEL | SEQUENTIAL FALLBACK
-```
+- test quality and behavioral coverage;
+- runtime correctness: boundaries, errors, concurrency, state transitions, migrations/data changes;
+- readability;
+- architecture and dependency direction;
+- security;
+- performance;
+- explicitly requested scope not already covered.
 
-- When available, create **one fresh, read-only reviewer per atomic review item**; dispatch independent items in bounded parallel batches. A batch never combines items: each item has one agent.
-- When unavailable or unknown, use sequential fallback only when `orchestration.require_subagents` is `false`; otherwise return `BLOCKED` and report the unavailable/unknown discovery evidence.
-- Each reviewer receives only its item, scope, and relevant artifact excerpt. It returns exact `file:line`, test/gate, or artifact evidence, severity, and a concrete fix for Critical/Important findings. It must not edit, stage, commit, deploy, or issue the final verdict.
-- The primary agent reconciles conflicts against source evidence and owns the verdict.
+Reviewers return exact file:line or gate evidence, severity, and a concrete fix for Critical/Important findings. They never edit, stage, commit, deploy, or decide the verdict.
 
-## Build the atomic review ledger
+## Decision Rules
 
-Before dispatch, enumerate and assign exactly one reviewer to each:
+- `Critical` blocks ship.
+- `Important` requires a fix before ship.
+- A meaningful behavior change without adequate tests defaults to `REQUEST CHANGES`.
+- Constitution is cited only when a discovered technical finding conflicts with it; missing Constitution alone does not trigger a duplicate audit.
 
-- test quality and coverage;
-- every enabled review axis: Correctness, Readability, Architecture, Security, Performance;
-- **every actionable Constitution principle, policy, and non-negotiable rule** parsed from `.specify/memory/constitution.md` — **one Constitution item equals one subagent**; never combine items;
-- an explicitly requested PR, commit, file, or directory item not already covered.
-
-Preserve item IDs in the report. Do not assign multiple axes or Constitution items to one reviewer.
-
-## Review Procedure
-
-### 1. Context and tests
-
-State the change goal, implemented Spec Kit requirements/tasks, and verification already run. The test reviewer checks behavior-focused tests for changed behavior, happy/edge/error/regression paths, and specification-like names.
-
-### 2. Five-axis review
-
-Each dedicated reviewer evaluates only its axis:
-
-- **Correctness:** spec/tasks match, boundaries/errors/concurrency, state transitions, safe migrations/data changes.
-- **Readability:** names, control flow, simplicity, no dead/debug/vague TODO code.
-- **Architecture:** existing patterns, dependency direction, ownership boundaries, canonical helpers, complexity reduction.
-- **Security:** untrusted inputs, boundary validation/output encoding, secrets, auth/authz, injection; AI output is untrusted and tool permissions are scoped.
-- **Performance:** N+1/unbounded work, pagination, hot-path sync work, caches/indexes, unnecessary UI renders.
-
-### 3. Constitution compliance review
-
-Parse the Constitution into individually identifiable actionable items. For **each item**, dispatch one dedicated reviewer. It returns only:
-
-```text
-Constitution item: <stable heading/id and exact text>
-Status: PASS | FAIL | RISK | BLOCKED
-Evidence: <file:line, test/gate output, or artifact reference>
-Finding: <non-compliance or "none">
-Fix: <required for FAIL/RISK>
-Validator: <subagent id/name or primary fallback>
-```
-
-A non-negotiable-rule `FAIL` is at least `Important`; it is `Critical` for a security vulnerability, data-loss risk, or broken core behavior. Missing Constitution evidence is `BLOCKED`, not PASS.
-
-### 4. Findings and report
-
-Severity: `Critical` blocks merge/ship; `Important` should be fixed before merge/ship; `Suggestion`, `Nit`, and `FYI` are non-blocking. Every Critical/Important finding includes a concrete fix.
-
-Keep all missing, failed, conflicting, skipped, and blocked items visible. If writes are allowed, save `.specify/reports/verify-review-ship/review.md` and `<feature-dir>/review.md` when clear.
+## Report
 
 ```markdown
 ## Review Report
 
-**Verdict:** APPROVE | REQUEST CHANGES | BLOCKED
-**Feature:** <feature id/path or unknown>
-**Reviewed scope:** <diff/branch/commit/files>
+Verdict: APPROVE | REQUEST CHANGES | BLOCKED
+Source fingerprint: <must match Converge and Verify>
 
-### Review Execution
-- Subagents: AVAILABLE/UNAVAILABLE/UNKNOWN — <evidence>
-- Execution mode: PARALLEL/SEQUENTIAL FALLBACK
-- Parallel capacity: <number or unknown>
-- Ledger: <total>; <passed> PASS, <failed> FAIL, <risks> RISK, <blocked> BLOCKED
+### Test Quality
+### Runtime Correctness
+### Readability
+### Architecture
+### Security
+### Performance
 
 ### Critical Issues
-- [file:line] <issue> — Fix: <specific fix>
-
 ### Important Issues
-- [file:line] <issue> — Fix: <specific fix>
-
-### Five-Axis Checklist
-| Axis | Status | Notes | Validator |
-|---|---|---|---|
-
-### Constitution Compliance
-| Constitution item | Status | Evidence | Finding / Fix | Validator |
-|---|---|---|---|---|
-
-### Test & Verification Review
-- Tests reviewed: yes/no + observations + validator
-- Build verified: yes/no + evidence
-- Verify report consumed: yes/no
+### Constitution References (only for discovered conflicts)
 
 ### Final Recommendation
 - APPROVE: run `/speckit.verify-review-ship.ship`
-- REQUEST CHANGES: fix Critical/Important issues, rerun verify and review
-- BLOCKED: supply missing Constitution/context/evidence, then rerun review
+- REQUEST CHANGES: fix, run `/speckit.converge`, then verify and review again
+- BLOCKED: supply fresh prerequisite evidence
 ```
-
-## Decision Rules
-
-- Never approve with a Critical issue, Constitution `FAIL`, or Constitution `BLOCKED` result.
-- Default to `REQUEST CHANGES` when meaningful behavior changes lack tests without a documented reason.
-- Use `BLOCKED` when Constitution, required context, or required evidence is unavailable.
-- Do not rubber-stamp or block on personal style preferences.

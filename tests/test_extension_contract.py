@@ -29,6 +29,61 @@ class ExtensionContractTests(unittest.TestCase):
         self.assertIn(targets, manifest)
         self.assertIn(targets, template)
 
+    def test_converge_is_a_required_core_prerequisite_without_extension_hooks(self) -> None:
+        manifest = self.read("extension.yml")
+        template = self.read("config-template.yml")
+        self.assertIn('version: "0.4.1"', manifest)
+        self.assertIn('speckit_version: ">=0.11.2"', manifest)
+        self.assertIn('"speckit.converge"', manifest)
+        self.assertNotIn("\nhooks:\n", manifest)
+        for text in (manifest, template):
+            self.assertIn("converge:", text)
+            self.assertIn("required: true", text)
+            self.assertIn('accepted_outcome: "converged"', text)
+            self.assertIn("require_current_source: true", text)
+            self.assertIn("block_on_tasks_appended: true", text)
+
+    def test_verify_consumes_converge_handoff_without_repeating_completeness_analysis(self) -> None:
+        verify = self.read("commands/verify.md")
+        normalized = " ".join(verify.split()).lower()
+        self.assertIn("## Converge Handoff (Required)", verify)
+        self.assertIn("tasks_appended", verify)
+        self.assertIn("source fingerprint", normalized)
+        self.assertIn("must not reconstruct the intent inventory", normalized)
+        self.assertIn("must not repeat spec-to-code completeness analysis", normalized)
+        self.assertNotIn("## Spec-to-code traceability", verify)
+        self.assertNotIn("every requirement and implementation task", normalized)
+
+    def test_review_owns_technical_risk_without_reauditing_converge_or_constitution(self) -> None:
+        review = self.read("commands/review.md")
+        normalized = " ".join(review.split()).lower()
+        self.assertIn("## Boundary with Official Converge", review)
+        self.assertIn("runtime correctness", normalized)
+        self.assertIn("must not repeat requirement, task, or plan completeness", normalized)
+        self.assertIn("must not perform a constitution item-by-item audit", normalized)
+        self.assertNotIn("every actionable constitution principle", normalized)
+        self.assertNotIn("## Constitution Compliance", review)
+
+    def test_ship_consumes_fresh_evidence_and_reconverges_after_governance_changes(self) -> None:
+        ship = self.read("commands/ship.md")
+        normalized = " ".join(ship.split()).lower()
+        self.assertIn("## Phase A — Evidence Freshness", ship)
+        self.assertIn("Converge: `CONVERGED`", ship)
+        self.assertIn("must not run a new independent code reviewer", normalized)
+        self.assertIn("must not run a new independent security auditor", normalized)
+        self.assertIn("must not run a new independent test engineer", normalized)
+        self.assertIn("`/speckit.analyze` then `/speckit.converge`", ship)
+        self.assertIn("tasks_appended", normalized)
+
+    def test_readme_documents_official_converge_loop_and_plugin_boundaries(self) -> None:
+        readme = self.read("README.md")
+        self.assertIn("implement ⇄ converge", readme)
+        self.assertIn("## Responsibility Boundaries", readme)
+        self.assertIn("`/speckit.converge`", readme)
+        self.assertIn("0 hooks", readme)
+        for target in ("constitution", "agent-context", "adr-docs", "backlog", "memory", "discard"):
+            self.assertIn(f"`{target}`", readme)
+
     def test_ship_has_explicit_approval_commit_and_revalidation_gate(self) -> None:
         ship = self.read("commands/ship.md")
         normalized = " ".join(ship.split()).lower()
@@ -59,11 +114,6 @@ class ExtensionContractTests(unittest.TestCase):
         self.assertIn("after remote primary-ref verification", normalized)
         self.assertIn("`host-write` requires a documented", normalized)
         self.assertIn("merged_with_post_merge_warnings", normalized)
-
-    def test_readme_documents_every_router_destination(self) -> None:
-        readme = self.read("README.md")
-        for target in ("constitution", "agent-context", "adr-docs", "backlog", "memory", "discard"):
-            self.assertIn(f"`{target}`", readme)
 
 
 if __name__ == "__main__":

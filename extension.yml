@@ -3,8 +3,8 @@ schema_version: "1.0"
 extension:
   id: "verify-review-ship"
   name: "Verify Review Ship"
-  version: "0.4.0"
-  description: "Adds verify and review quality gates, an approved learning-policy gate, and transactional delivery."
+  version: "0.4.1"
+  description: "Post-convergence operational verification, technical review, learning governance, and transactional delivery."
   category: "process"
   effect: "read-write"
   author: "Carlos Eduardo Gevaerd Araujo"
@@ -13,59 +13,53 @@ extension:
   homepage: "https://github.com/cadugevaerd/spec-kit-verify-review-ship"
 
 requires:
-  speckit_version: ">=0.1.0"
-  commands: ["speckit.implement", "speckit.analyze", "speckit.constitution"]
+  speckit_version: ">=0.11.2"
+  commands: ["speckit.implement", "speckit.converge", "speckit.analyze", "speckit.constitution"]
 
 provides:
   commands:
     - name: "speckit.verify-review-ship.verify"
       file: "commands/verify.md"
-      description: "Verify implementation against Spec Kit artifacts and project gates."
+      description: "Run post-convergence executable gates and diff hygiene checks."
       aliases: ["speckit.verify-review-ship.v"]
     - name: "speckit.verify-review-ship.review"
       file: "commands/review.md"
-      description: "Run a five-axis code review for current changes."
+      description: "Review technical risk after Converge and Verify evidence."
       aliases: ["speckit.verify-review-ship.r"]
     - name: "speckit.verify-review-ship.ship"
       file: "commands/ship.md"
-      description: "Capture approved project learnings, then merge a GO change safely."
+      description: "Capture approved learnings, revalidate, and merge safely."
       aliases: ["speckit.verify-review-ship.s"]
   config:
     - name: "verify-review-ship-config.yml"
       template: "config-template.yml"
-      description: "Verification, review, learning-policy, merge, cleanup, and ship configuration."
+      description: "Convergence, executable-gate, review, learning-policy, merge, and cleanup configuration."
       required: false
-
-hooks:
-  after_implement:
-    command: "speckit.verify-review-ship.verify"
-    priority: 10
-    optional: true
-    prompt: "Run verify gate after implementation?"
-    description: "Checks implementation completeness and project verification gates after /speckit.implement."
 
 tags: ["quality", "review", "shipping", "merge", "cleanup", "learning", "governance", "agent-skills"]
 
 defaults:
+  converge:
+    required: true
+    accepted_outcome: "converged"
+    require_current_source: true
+    block_on_tasks_appended: true
   orchestration:
     discover_subagents: true
     require_subagents: false
     max_parallel_agents: 4
   verify:
-    after_implement: "optional"
     require_clean_worktree: false
     run_tests: true
     run_build: true
     run_lint: true
     run_typecheck: true
-    require_spec_artifacts: true
   review:
-    include_correctness: true
+    include_runtime_correctness: true
     include_readability: true
     include_architecture: true
     include_security: true
     include_performance: true
-    validate_constitution: true
     severity_blocks_ship: ["Critical", "Important"]
   ship:
     require_verify_report: true
@@ -83,7 +77,6 @@ defaults:
       require_human_approval: true
       require_evidence: true
       deduplicate: true
-      # Invariant: false or missing blocks ship before revalidation.
       auto_commit_versioned_changes: true
       rerun_analyze_on_constitution_change: true
       rerun_verify_review: true
