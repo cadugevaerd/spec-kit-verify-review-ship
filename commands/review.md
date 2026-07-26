@@ -18,7 +18,7 @@ This command **must not repeat requirement, task, or plan completeness** analysi
 
 ## Required Evidence
 
-1. Consume fresh Converge `CONVERGED` and Verify `PASS` evidence with matching source fingerprints.
+1. Consume fresh Converge `CONVERGED` and Verify `PASS` evidence with matching source fingerprints, computed per **Source Fingerprint (Canonical)** in `verify`. Gate reports are excluded from the fingerprint, so committing `verify.md` before this command MUST NOT be treated as stale evidence.
 2. Inspect current diff, tests, generated artifacts, and explicitly requested PR/branch/commit/files.
 3. If evidence is missing or stale, return `BLOCKED` with the safe resume command.
 
@@ -49,7 +49,8 @@ Reviewers return exact file:line or gate evidence, severity, and a concrete fix 
 ## Review Report
 
 Verdict: APPROVE | REQUEST CHANGES | BLOCKED
-Source fingerprint: <must match Converge and Verify>
+Source fingerprint: tree <sha> / work <sha> / plan <sha>
+                    (must match Converge and Verify; computed by scripts/source-fingerprint.sh)
 
 ### Test Quality
 ### Runtime Correctness

@@ -3,7 +3,7 @@ schema_version: "1.0"
 extension:
   id: "verify-review-ship"
   name: "Verify Review Ship"
-  version: "0.4.1"
+  version: "0.4.2"
   description: "Post-convergence operational verification, technical review, learning governance, and transactional delivery."
   category: "process"
   effect: "read-write"
@@ -30,6 +30,10 @@ provides:
       file: "commands/ship.md"
       description: "Capture approved learnings, revalidate, and merge safely."
       aliases: ["speckit.verify-review-ship.s"]
+  scripts:
+    - name: "source-fingerprint.sh"
+      file: "scripts/source-fingerprint.sh"
+      description: "Canonical source fingerprint: reviewed-scope tree, work (including untracked) and tasks.md."
   config:
     - name: "verify-review-ship-config.yml"
       template: "config-template.yml"
@@ -44,6 +48,13 @@ defaults:
     accepted_outcome: "converged"
     require_current_source: true
     block_on_tasks_appended: true
+  # Paths excluded from the source fingerprint. Gate reports live in the repository, so a
+  # fingerprint that included them would be invalidated by writing the report it just declared.
+  # Extend this list if the project stores gate reports elsewhere.
+  fingerprint_exclude:
+    - ".specify/reports/verify-review-ship/**"
+    - "specs/**/verify.md"
+    - "specs/**/review.md"
   orchestration:
     discover_subagents: true
     require_subagents: false

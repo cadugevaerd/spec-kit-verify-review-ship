@@ -7,6 +7,13 @@ converge:
   accepted_outcome: "converged"
   require_current_source: true
   block_on_tasks_appended: true
+  # Paths excluded from the source fingerprint. Gate reports live in the repository, so a
+  # fingerprint that included them would be invalidated by writing the report it just declared.
+  # Extend this list if the project stores gate reports elsewhere.
+  fingerprint_exclude:
+    - ".specify/reports/verify-review-ship/**"
+    - "specs/**/verify.md"
+    - "specs/**/review.md"
 
 orchestration:
   discover_subagents: true

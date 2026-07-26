@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.2 - 2026-07-26
+
+### Fixed
+
+- The source fingerprint no longer includes `HEAD`, and now excludes gate-report paths. Writing
+  and committing `verify.md` changed `HEAD` without changing the reviewed content, so the
+  fingerprint a report had just declared was invalidated before `review` consumed it — forcing a
+  spurious `BLOCKED` on work that never moved.
+- `verify` gained a canonical **Source Fingerprint** section computing a reviewed-scope tree
+  hash, an uncommitted diff hash, and the `tasks.md` hash; `review` and `ship` reference it
+  instead of restating the rule in prose.
+- Added `converge.fingerprint_exclude` to the manifest and the configuration template so
+  projects storing gate reports elsewhere can extend the exclusion list. The script reads that
+  key, so the published setting and the algorithm share one effective set.
+- Untracked files now count toward the fingerprint. `git diff HEAD` does not see a file that was
+  never added, so an implementation delivered as a new unstaged file could have passed a
+  matching-evidence check without being reviewed.
+
+### Added
+
+- `scripts/source-fingerprint.sh` — the single executable implementation of the fingerprint.
+  `verify`, `review` and `ship` defer to it instead of restating the algorithm in prose.
+- `tests/test_source_fingerprint.py` — behavioural tests that run the script against throwaway
+  repositories: committing a gate report must not move the fingerprint, a real content change
+  must, an untracked file must, `tasks.md` is pinned separately, and the configured exclusion
+  list actually drives the result.
+
 ## 0.4.1 - Unreleased
 
 ### Changed
