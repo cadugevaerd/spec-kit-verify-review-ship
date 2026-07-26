@@ -1,8 +1,8 @@
 ---
-description: "Decide readiness, merge a GO change into the primary branch, clean its worktree/branch, and summarize delivery"
+description: "Capture approved project learnings, revalidate the final HEAD, merge safely, clean up, and summarize delivery"
 ---
 
-# Ship, Merge, Cleanup, and Delivery Summary
+# Ship, Learn, Merge, Cleanup, and Delivery Summary
 
 Run after `/speckit.verify-review-ship.verify` and `/speckit.verify-review-ship.review`.
 
@@ -12,156 +12,200 @@ $ARGUMENTS
 
 ## Purpose
 
-Complete the delivery transaction with one terminal status:
+Complete delivery with one terminal status:
 
 ```text
-MERGED | MERGED_WITH_CLEANUP_WARNINGS | NO-GO | BLOCKED | DRY-RUN READY
+AWAITING_LEARNING_APPROVAL | MERGED | MERGED_WITH_CLEANUP_WARNINGS |
+MERGED_WITH_POST_MERGE_WARNINGS | NO-GO | BLOCKED | DRY-RUN READY
 ```
 
-A successful `GO` authorizes this command to merge the current work branch into the repository's primary branch, push the primary branch, safely clean the completed worktree/branch, and return a concise delivery summary. It does **not** deploy an application or infrastructure.
+A passing readiness decision is only a **provisional GO**. Before any Git integration,
+this command harvests evidence-backed project learnings, proposes their destinations,
+and requires explicit approval. Only after approved changes are applied and the final
+HEAD is revalidated does the command merge the work branch.
 
-Use `--dry-run` in `$ARGUMENTS` to produce the decision and exact intended operations without changing local or remote Git state. Optional arguments may explicitly name `--base BRANCH` or `--remote REMOTE`; otherwise use extension configuration and then the remote default branch.
+`--dry-run` produces the readiness, learning proposal, and exact Git operations without
+persisting a proposal, editing files, fetching, pruning, merging, pushing, or changing
+refs. Optional arguments may set `--base BRANCH` or `--remote REMOTE`.
+
+Approval arguments are explicit and mutually composable:
+
+```text
+--approve all
+--approve LRN-001,LRN-003
+--reject LRN-002
+--defer LRN-004
+--proposal <proposal-hash>
+```
+
+Natural-language approval is acceptable only when it unambiguously identifies the same
+candidate IDs. Ambiguity, no approval, a timeout, or an invalid proposal hash returns
+`AWAITING_LEARNING_APPROVAL`; it never implies approval.
 
 ## Expected Inputs
 
-Consume, in order:
+Consume current Spec Kit artifacts; verify and review reports with ledgers/findings/retries;
+Git branch/worktree/remotes; project gates, rollback and monitoring evidence; extension
+configuration; and installed `agent-context` configuration. Missing required verify/review
+evidence is `BLOCKED`. Never invent results.
 
-1. Active Spec Kit artifacts: `spec.md`, `plan.md`, `tasks.md`, `quickstart.md`, contracts, data model, and checklists when present.
-2. `/speckit.verify-review-ship.verify` report.
-3. `/speckit.verify-review-ship.review` report.
-4. Current Git repository, worktree, branch, diff, commits, remotes, and primary branch.
-5. Project test/build/lint/typecheck, release, CI, rollback, and monitoring evidence.
+## Phase A — Provisional Readiness Decision
 
-If required verify/review evidence is missing, run those commands when possible; otherwise return `BLOCKED`. Never invent results.
+Run independent Code Reviewer, Security Auditor, and Test Engineer perspectives in
+parallel when subagents are available; otherwise use isolated sequential passes. Validate
+requirements/tasks coverage, gates, unresolved review/security findings, and applicable
+performance, accessibility, infrastructure, migrations, documentation, monitoring, and
+rollback evidence. Record an immutable `source_head` only after provisional GO.
 
-## Phase A — Readiness Decision
+A Critical issue, High security issue, Constitution failure/block, missing rollback plan,
+or missing production-bound verification evidence returns `NO-GO` or `BLOCKED`. Neither
+status may merge, push, delete a branch, or remove a worktree.
 
-Run independent Code Reviewer, Security Auditor, and Test Engineer perspectives in parallel when subagents are available, otherwise as isolated sequential passes.
+## Phase B — Learning / Policy Gate
 
-Validate at least:
+This controlled, mutable step happens **before** Git pre-flight and merge.
 
-- requirements/tasks and changed behavior are covered;
-- mandatory tests, build, lint, and typecheck pass;
-- no unresolved Critical/Important review finding;
-- no Critical/High security issue or exposed secret;
-- performance, accessibility, infrastructure, migrations, documentation, monitoring, and rollback are addressed when applicable.
+### B1. Evidence-backed learning ledger
 
-Create the rollback plan before `GO`, including trigger, exact rollback steps, data/migration handling, post-rollback verification, and recovery objective.
+Extract candidates only from `source_head` and concrete verify/review failures, risks,
+blockers, accepted fixes, retries, integration gates, rollback/monitoring observations,
+analysis decisions, user corrections, and resolved artifact inconsistencies.
 
-Decision rules:
+Each deterministic `LRN-###` candidate includes: reusable learning; report ledger ID,
+file:line, command/result, or approved user decision; scope/confidence; duplicate check;
+destination; operation; exact bounded diff; and revalidation risk. Discard feature-local,
+transient, subjective, secret-bearing, personally identifying, or unsupported statements.
+A candidate without evidence is `BLOCKED` and cannot be applied.
 
-1. Unresolved Critical issue, High security issue, Constitution failure/block, missing rollback plan, or missing production-bound verification evidence => `NO-GO` or `BLOCKED`.
-2. `NO-GO` and `BLOCKED` perform **no merge, push, branch deletion, or worktree removal**.
-3. `GO` continues automatically to the Git integration transaction unless `--dry-run` is present.
+### B2. Deduplicate and route
 
-## Phase B — Git Pre-flight (fail closed)
+1. Remove noise, one-off details, and represented candidates.
+2. Prefer `AMEND` to an equivalent Constitution principle; create a new principle only for
+   recurring, project-wide, non-negotiable, testable governance.
+3. Route repository/framework/runtime instructions to `agent-context`.
+4. Route architecture decisions, runbooks, and technical knowledge to `adr-docs`.
+5. Route valid undelivered improvement to `backlog`.
+6. Route only durable, cross-project, non-normative context to `memory`.
+7. Use `discard` for remaining noise/duplicates; report but never persist it.
 
-Before changing Git state, discover and record:
+Never duplicate a rule between Constitution, agent context, and memory.
 
-```text
-repository root and Git common directory
-current worktree path and whether it is primary or linked
-work branch and immutable work HEAD
-target remote and primary branch
-remote primary HEAD and remote work-branch HEAD
-merge strategy and configured verification commands
-```
+### B3. Validate destinations
 
-Apply every guard below:
+- **Constitution:** `.specify/memory/constitution.md` must exist; a candidate is blocked
+  if it is missing. Apply official Constitution semantics: SemVer (`MAJOR` incompatible
+  redefinition/removal; `MINOR` new/material principle; `PATCH` clarification),
+  `LAST_AMENDED_DATE`, Sync Impact Report, and propagation to templates, commands, and
+  guidance.
+- **Agent context:** read
+  `.specify/extensions/agent-context/agent-context-config.yml` first; `context_files`
+  precedes `context_file`. Otherwise map `claude` to `CLAUDE.md`, and `codex`, `hermes`,
+  or generic to `AGENTS.md`. Present alternatives when ambiguous. Respect managed markers;
+  never overwrite managed markers or unrelated content. An absent file is proposed as
+  `CREATE`, never created silently.
+- **ADR/docs:** validate configured project-relative `adr_directory`; proposal includes
+  the exact file path.
+- **Backlog:** validate configured project-relative `backlog_path`; absence is a proposed
+  `CREATE`, never a fallback.
+- **Memory:** generic Spec Kit has no memory API. `disabled` suppresses it; `propose-only`
+  records pending work; `host-write` requires a documented, idempotent adapter and real
+  success evidence. Never claim a write that did not occur.
 
-1. Require a Git repository, a named current branch, and no merge/rebase/cherry-pick/revert/bisect in progress. Detached HEAD => `BLOCKED`.
-2. Resolve the remote from `--remote`, then `ship.remote`; resolve the primary branch from `--base`, then `ship.base_branch`, then the remote symbolic `HEAD`. Never guess `main` when discovery is available.
-3. Require the work branch to differ from the primary branch and reject protected/reserved branches such as the primary branch itself.
-4. Require the worktree to be completely clean, including staged, unstaged, untracked, conflicted, and modified-submodule state. Do not stash, discard, commit, or delete user changes automatically.
-5. For `--dry-run`, perform remote discovery only with read-only queries such as `git ls-remote --symref <remote> HEAD` and `git ls-remote <remote> <refs>`. Do **not** fetch, prune, create/remove worktrees, checkout, merge, push, or update/delete any ref. After all local and remote read-only guards pass, return `DRY-RUN READY` with the exact planned operations and stop.
-6. For a real transaction, fetch the identified remote with pruning and require the remote primary branch to exist.
-7. If the work branch has an upstream, reject a behind or diverged branch. If a same-named remote work branch exists, record its exact HEAD for an atomic cleanup lease.
-8. Require every existing worktree that will be touched during cleanup to be clean. Do not use `git clean`, `reset --hard` on a user worktree, `branch -D`, `worktree remove --force`, or forced primary-branch pushes. The only permitted `--force-with-lease` is the exact-ref lease used for conditional deletion of the completed remote work branch in Phase D.
-9. Reconfirm that verify/review evidence corresponds to the recorded work HEAD. Stale evidence => `BLOCKED`.
-10. Allow only the configured merge strategies `no-ff` and `ff-only`; any other value => `BLOCKED`.
+No destination fallback is silent; report unavailable targets and a safe resume action.
 
-## Phase C — Isolated Integration Transaction
+### B4. Proposal and approval
 
-Do not merge directly inside a potentially shared primary worktree. Use a temporary detached integration worktree based on the fetched remote primary HEAD:
-
-1. Create a unique temporary integration worktree from `<remote>/<primary>` and record `base_before`.
-2. Merge the immutable work HEAD using the validated strategy: `--no-ff --no-edit` by default, or `--ff-only` when configured.
-3. On conflict, abort the merge, remove only the clean temporary integration worktree, preserve the work branch/worktree, and return `BLOCKED` with conflicted paths.
-4. In the integrated tree, rerun all mandatory configured test/build/lint/typecheck gates. A failed gate means `NO-GO`; remove the temporary integration worktree and preserve the work branch/worktree.
-5. Record `integrated_head`, verify `base_before` and the recorded work HEAD are its ancestors, and push exactly `integrated_head` to `refs/heads/<primary>` **without force**.
-6. A non-fast-forward/rejected push means the primary branch changed concurrently. Preserve the work branch/worktree, remove only the temporary integration worktree, fetch again, and return `BLOCKED`; never retry by force.
-7. Read the remote primary ref back and require it to equal `integrated_head`. Only this verified remote equality marks the merge complete.
-
-If the merge is verified remotely, cleanup failures must never roll back or hide the successful merge. Continue with warnings and finish as `MERGED_WITH_CLEANUP_WARNINGS` when necessary.
-
-## Phase D — Safe Cleanup
-
-Cleanup starts only after the remote primary ref is verified at `integrated_head`.
-
-1. Remove the temporary integration worktree and temporary integration ref.
-2. For a **linked worktree** that still has the exact recorded work HEAD and is clean:
-   - change to a safe directory outside it;
-   - remove it with ordinary `git worktree remove` (never `--force`);
-   - prune only stale worktree metadata.
-3. For the **primary worktree**, never delete its directory. If possible, switch it to the updated primary branch and fast-forward it. If that branch is already checked out elsewhere, park the clean primary worktree at the verified integrated commit in detached mode and report this explicitly.
-4. Delete the local work branch only when it is no longer checked out anywhere and `git merge-base --is-ancestor <recorded-work-head> <integrated-head>` succeeds. Use `git branch -d`, never `-D`.
-5. Delete the same-named remote work branch only when it existed at pre-flight, its recorded commit is an ancestor of `integrated_head`, and a fresh `git ls-remote` still returns the exact recorded remote work HEAD. Perform an atomic compare-and-delete with:
-
-   ```bash
-   git push --force-with-lease=refs/heads/<work-branch>:<recorded-remote-work-head> \
-     <remote> --delete <work-branch>
-   ```
-
-   This exact-ref lease is the only permitted force option. If the ref advanced or the lease is rejected, preserve the branch and report `WARNING`; never retry with a broader lease or force. Re-read the remote ref after the operation and require it to be absent before reporting `DONE`.
-6. Re-read worktree registrations, local branches, the remote work branch, and remote primary HEAD. Report each cleanup action as `DONE`, `SKIPPED`, or `WARNING` with evidence.
-
-Never delete the primary branch, the repository's primary worktree, an unmerged branch, a dirty worktree, or a branch/ref that changed after pre-flight.
-
-## Phase E — Delivery Classification and Summary
-
-Classify the delivered work from Spec Kit artifacts, branch/commit conventions, and changed scope. Use one primary type:
+For a non-dry run persist the proposal outside the worktree at:
 
 ```text
-PRODUCT | FEATURE | BUGFIX | SECURITY | REFACTOR | DOCUMENTATION | CHORE | OTHER
+$(git rev-parse --git-common-dir)/verify-review-ship/learning/<source_head>.json
 ```
 
-If evidence is ambiguous, use `OTHER`; do not invent a product or feature label. Summarize what was delivered in business language, then the technical proof.
+Store source head, proposal hash, candidate table, exact patches, decisions, and times.
+Dry-run never writes a proposal. Output a table with ID, learning, evidence, destination,
+operation, risk, and approval. Stop at `AWAITING_LEARNING_APPROVAL` unless valid approvals
+match the proposal hash.
 
-## Required Output
+### B5. Apply approved candidates
+
+Require current work HEAD to equal `source_head` and re-check proposal hash. Any change
+invalidates approval and regenerates the proposal. Apply only approved versioned changes;
+rejected/deferred/blocked/discard candidates never modify the tree. Confirm no unapproved
+hunk or path changed. Constitution uses required propagation; context stays outside managed
+markers; ADR/docs and backlog use approved project-relative paths only.
+
+`ship.learning_gate.auto_commit_versioned_changes` must be `true`; false or missing is
+`BLOCKED`. Create a dedicated work-branch commit:
+`docs(ship): capture approved project learnings`. A dirty pre-existing worktree, failed
+commit, or unexpected changed path is `BLOCKED`; never stash, discard, or commit user work.
+
+### B6. Revalidate final HEAD
+
+Versioned changes produce immutable `learning_head`; previous reports are stale. If
+Constitution changed, run `/speckit.analyze` and validate every actionable Constitution
+item. Rerun `verify`, `review`, all affected integration gates, and all configured gates by
+default. Require final GO evidence tied to `learning_head`; failed revalidation is `NO-GO`,
+missing capability/evidence is `BLOCKED`, and neither permits merge or cleanup.
+
+## Phase C — Git Pre-flight
+
+Discover root/common directory, worktree type/path, work branch/final HEAD, remote/base,
+remote refs, strategy, and commands. Require a named clean worktree, no Git operation in
+progress, a distinct work/primary branch, and `no-ff` or `ff-only`. Resolve remote/base from
+arguments/configuration then symbolic remote HEAD; never guess `main`.
+
+For real runs fetch/prune, reject behind/diverged upstream, record remote work-branch HEAD
+for cleanup leasing, require clean cleanup targets, and prove verify/review match final HEAD.
+Never stash, `reset --hard`, `git clean`, `branch -D`, force-remove worktrees, or force-push
+primary.
+
+## Phase D — Isolated Integration Transaction
+
+Create a detached integration worktree from fetched primary HEAD. Merge final work HEAD
+using `--no-ff --no-edit` or configured `--ff-only`; conflicts or failed integrated gates
+preserve work and return `BLOCKED`/`NO-GO`. Record `base_before` and `integrated_head`,
+require both ancestors, push exactly integrated HEAD without force, and read remote primary
+back for exact equality. Concurrent primary change is `BLOCKED`; never force retry.
+
+## Phase E — Memory Finalization and Cleanup
+
+Memory is outside the Git transaction. With default `write_after_verified_merge: true`,
+finalize approved memory only **after remote primary-ref verification**. Record adapter and
+result. `propose-only`/unavailable memory remains pending. A required post-merge memory
+failure returns `MERGED_WITH_POST_MERGE_WARNINGS`; merge remains successful. Pre-merge
+memory requires idempotency plus rollback/compensation.
+
+After remote verification, remove temporary integration worktree/ref, then clean only safe
+linked worktrees and branches using non-force ancestry, cleanliness, and exact-ref lease
+rules. Cleanup failure never rolls back merge and returns `MERGED_WITH_CLEANUP_WARNINGS`
+unless there is an earlier post-merge warning.
+
+## Phase F — Report
+
+Classify delivery as `PRODUCT | FEATURE | BUGFIX | SECURITY | REFACTOR | DOCUMENTATION |
+CHORE | OTHER`.
 
 ```markdown
-## Ship Result: MERGED | MERGED_WITH_CLEANUP_WARNINGS | NO-GO | BLOCKED | DRY-RUN READY
+## Ship Result: <terminal status>
 
-### Delivered
-- Type: PRODUCT | FEATURE | BUGFIX | SECURITY | REFACTOR | DOCUMENTATION | CHORE | OTHER
-- Name: <feature/spec/title or concise inferred title>
-- Outcome: <what changed and why it matters>
-- Scope: <requirements/tasks/components delivered>
+### Learning / Policy Changes
+- Source HEAD and proposal hash
+- Evidence consumed
+- Approved / rejected / deferred / blocked IDs
+| ID | Evidence | Destination | Approval | Applied | Revalidation |
+|---|---|---|---|---|---|
 
-### Quality Evidence
-- Verify: PASS/FAIL/BLOCKED — <report/ref>
-- Review: APPROVE/REQUEST CHANGES/BLOCKED — <report/ref>
-- Integration gates: <commands and real results>
-- Risks/rollback: <remaining risks and rollback summary>
+### Applied Changes
+- Versioned learning commit and diff integrity
+- Final work HEAD
+- Analyze / Verify / Review / integration results
 
-### Merge
-- Work branch: <branch>@<recorded work HEAD>
-- Primary branch: <remote>/<branch>
-- Strategy: <strategy>
-- Before: <base_before>
-- Integrated: <integrated_head or not created>
-- Remote verification: PASS/FAIL/NOT RUN — <observed ref>
+### Pending / Unavailable
+- Item, reason, and safe resume action
 
-### Cleanup
-| Item | Status | Evidence / note |
-|---|---|---|
-| Temporary integration worktree/ref | DONE/SKIPPED/WARNING | ... |
-| Work worktree | DONE/SKIPPED/WARNING | ... |
-| Local work branch | DONE/SKIPPED/WARNING | ... |
-| Remote work branch | DONE/SKIPPED/WARNING | ... |
-
-### Delivery Summary
-<3-7 concise bullets covering user/business outcome, important technical changes, verification, merge, cleanup, and any residual action>
+### Delivered / Quality Evidence / Merge / Cleanup / Delivery Summary
+- Type, outcome, scope, rollback, refs, cleanup evidence, and residual action
 ```
 
-For `NO-GO` or `BLOCKED`, include blockers and the exact safe resume point. For a verified merge with cleanup warnings, lead with the fact that delivery is already merged and list only the residual cleanup actions; never describe it as unmerged.
+For `AWAITING_LEARNING_APPROVAL`, `NO-GO`, or `BLOCKED`, include the safe resume point.
+For a verified merge warning, lead with merged status and list only residual actions.
