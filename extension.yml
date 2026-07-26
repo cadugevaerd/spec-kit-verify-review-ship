@@ -30,6 +30,10 @@ provides:
       file: "commands/ship.md"
       description: "Capture approved learnings, revalidate, and merge safely."
       aliases: ["speckit.verify-review-ship.s"]
+  scripts:
+    - name: "source-fingerprint.sh"
+      file: "scripts/source-fingerprint.sh"
+      description: "Canonical source fingerprint: reviewed-scope tree, work (including untracked) and tasks.md."
   config:
     - name: "verify-review-ship-config.yml"
       template: "config-template.yml"

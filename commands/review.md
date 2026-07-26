@@ -49,7 +49,8 @@ Reviewers return exact file:line or gate evidence, severity, and a concrete fix 
 ## Review Report
 
 Verdict: APPROVE | REQUEST CHANGES | BLOCKED
-Source fingerprint: <tree>-<work>-<plan>   (must match Converge and Verify; gate reports excluded)
+Source fingerprint: tree <sha> / work <sha> / plan <sha>
+                    (must match Converge and Verify; computed by scripts/source-fingerprint.sh)
 
 ### Test Quality
 ### Runtime Correctness

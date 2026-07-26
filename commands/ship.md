@@ -29,8 +29,8 @@ Consume reports whose source fingerprints exactly match the current worktree:
 Converge: `CONVERGED`
 Verify: PASS
 Review: APPROVE
-Fingerprint: reviewed-scope tree hash + uncommitted diff hash + tasks.md hash
-            (canonical definition in `verify`; gate reports excluded)
+Fingerprint: tree / work / plan, each reported separately
+             (computed by `scripts/source-fingerprint.sh`; see `verify` for the contract)
 ```
 
 `tasks_appended`, missing, stale, contradictory, or failed evidence is `BLOCKED`; resume with `/speckit.implement` and `/speckit.converge` as applicable.

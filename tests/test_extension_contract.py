@@ -43,36 +43,34 @@ class ExtensionContractTests(unittest.TestCase):
             self.assertIn("require_current_source: true", text)
             self.assertIn("block_on_tasks_appended: true", text)
 
-    def test_source_fingerprint_excludes_gate_reports_and_drops_head(self) -> None:
+    def test_source_fingerprint_has_one_executable_implementation(self) -> None:
         verify = self.read("commands/verify.md")
         review = self.read("commands/review.md")
         ship = self.read("commands/ship.md")
         manifest = self.read("extension.yml")
         template = self.read("config-template.yml")
 
-        # verify owns the canonical definition
-        self.assertIn("## Source Fingerprint (Canonical)", verify)
-        self.assertIn("reviewed-scope tree hash", verify)
-        self.assertIn(":(exclude).specify/reports/verify-review-ship/**", verify)
+        script = ROOT / "scripts" / "source-fingerprint.sh"
+        self.assertTrue(script.is_file(), "the canonical fingerprint must be executable code")
 
-        # HEAD must not define the fingerprint in any command
+        # every command defers to that one implementation
+        for name, text in (("verify", verify), ("review", review), ("ship", ship)):
+            self.assertIn("source-fingerprint.sh", text, f"{name} must defer to the script")
+
+        # no command may reintroduce a HEAD-based fingerprint
         for name, text in (("verify", verify), ("review", review), ("ship", ship)):
             self.assertNotIn(
-                "HEAD + current diff hash + tasks.md hash",
+                "HEAD + current diff hash",
                 text,
                 f"{name} still fingerprints on HEAD, which a committed gate report invalidates",
             )
 
-        # review and ship defer to the canonical definition instead of restating it
-        self.assertIn("Source Fingerprint (Canonical)", review)
-        self.assertIn("gate reports excluded", ship)
-
-        # the exclusion list is configurable and published identically in both files
+        # the exclusion list is configuration, published identically in both files,
+        # and the script reads it rather than hardcoding its own copy
         for text in (manifest, template):
             self.assertIn("fingerprint_exclude:", text)
             self.assertIn('- ".specify/reports/verify-review-ship/**"', text)
-            self.assertIn('- "specs/**/verify.md"', text)
-            self.assertIn('- "specs/**/review.md"', text)
+        self.assertIn("fingerprint_exclude", script.read_text(encoding="utf-8"))
 
     def test_verify_consumes_converge_handoff_without_repeating_completeness_analysis(self) -> None:
         verify = self.read("commands/verify.md")
