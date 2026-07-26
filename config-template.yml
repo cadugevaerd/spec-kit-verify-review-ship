@@ -47,6 +47,32 @@ ship:
   require_clean_worktree: true
   rerun_integration_gates: true
 
+  learning_gate:
+    # Harvest evidence-backed, reusable learnings before Git integration.
+    enabled: true
+    require_human_approval: true
+    require_evidence: true
+    deduplicate: true
+    # Invariant: false or missing blocks ship. Approved versioned changes must be
+    # committed on the work branch before revalidation.
+    auto_commit_versioned_changes: true
+    rerun_analyze_on_constitution_change: true
+    rerun_verify_review: true
+    allow_targets: ["constitution", "agent-context", "adr-docs", "backlog", "memory", "discard"]
+    adr_directory: "docs/adr"
+    backlog_path: "BACKLOG.md"
+    context_section_heading: "Project Learnings"
+
+  memory:
+    # disabled | propose-only | host-write
+    # Generic Spec Kit has no memory API. host-write requires a documented,
+    # idempotent host adapter; otherwise the item remains pending.
+    mode: "propose-only"
+    # External memory is finalized only after the primary remote ref is verified.
+    # Set false only for an adapter with verified rollback/compensation support.
+    write_after_verified_merge: true
+    required: false
+
 output:
   directory: ".specify/reports"
   write_markdown_reports: true
