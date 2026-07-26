@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.2 - 2026-07-26
+
+### Fixed
+
+- The source fingerprint no longer includes `HEAD`, and now excludes gate-report paths. Writing
+  and committing `verify.md` changed `HEAD` without changing the reviewed content, so the
+  fingerprint a report had just declared was invalidated before `review` consumed it — forcing a
+  spurious `BLOCKED` on work that never moved.
+- `verify` gained a canonical **Source Fingerprint** section computing a reviewed-scope tree
+  hash, an uncommitted diff hash, and the `tasks.md` hash; `review` and `ship` reference it
+  instead of restating the rule in prose.
+- Added `converge.fingerprint_exclude` to the manifest and the configuration template so
+  projects storing gate reports elsewhere can extend the exclusion list.
+
 ## 0.4.1 - Unreleased
 
 ### Changed

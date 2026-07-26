@@ -16,15 +16,45 @@ Require evidence from the current host session/history that official `/speckit.c
 
 ```text
 Outcome: converged | tasks_appended | unavailable
-Source fingerprint: HEAD + current diff hash + tasks.md hash
+Source fingerprint: reviewed-scope tree hash + uncommitted diff hash + tasks.md hash
 Evidence source: official command result in the current session/history
 ```
 
 - `tasks_appended`: return `VERIFY: BLOCKED`; run `/speckit.implement`, then `/speckit.converge` again.
 - `unavailable`, missing, ambiguous, or stale evidence: return `VERIFY: BLOCKED`; run `/speckit.converge` again.
-- Capture the current source fingerprint in this report. A changed fingerprint makes the report stale.
+- Capture the current source fingerprint in this report, computed as defined in **Source Fingerprint (Canonical)** below. A changed fingerprint makes the report stale; a report written or committed by these gates MUST NOT change it.
 
 The official Converge command owns spec/plan/tasks-to-code completeness. This command **must not reconstruct the intent inventory** and **must not repeat spec-to-code completeness analysis**. Do not enumerate FRs, acceptance scenarios, plan decisions, or tasks as an independent pass/fail ledger.
+
+## Source Fingerprint (Canonical)
+
+The fingerprint identifies the **reviewed content**, never the commit that recorded a gate
+report. Compute it over the tracked scope with gate-report artifacts excluded:
+
+```bash
+EXCLUDE=(
+  ':(exclude).specify/reports/verify-review-ship/**'
+  ':(exclude)specs/**/verify.md'
+  ':(exclude)specs/**/review.md'
+)
+tree=$(git ls-files -s -- . "${EXCLUDE[@]}" | sha256sum | cut -d' ' -f1)
+work=$(git diff HEAD -- . "${EXCLUDE[@]}" | sha256sum | cut -d' ' -f1)
+plan=$(sha256sum "<feature-dir>/tasks.md" | cut -d' ' -f1)
+fingerprint="${tree:0:12}-${work:0:12}-${plan:0:12}"
+```
+
+`tree` covers committed content, `work` covers uncommitted changes, and `plan` pins the task
+list. Report the three components, not only the concatenation, so a mismatch says which part
+moved.
+
+**Why `HEAD` is not part of it.** Verify and Review are told to write their reports into the
+repository. Committing a report changes `HEAD` without changing anything that was reviewed, so a
+`HEAD`-based fingerprint invalidates itself between two gates of the same run and forces
+`BLOCKED` on work that never moved. Excluding the report paths from a content hash removes the
+self-reference entirely.
+
+Any project that stores gate reports elsewhere MUST extend the exclusion list in its
+configuration; a report path inside the fingerprint reintroduces the same defect.
 
 ## Scope Discovery
 
@@ -46,7 +76,7 @@ Write when allowed to `.specify/reports/verify-review-ship/verify.md` and the ac
 ## Verify Report
 
 Verdict: PASS | FAIL | BLOCKED
-Source fingerprint: <HEAD + diff + tasks hash>
+Source fingerprint: <tree>-<work>-<plan>   (gate reports excluded)
 Converge: CONVERGED | STALE | MISSING | TASKS_APPENDED
 
 ### Operational Gates

@@ -32,7 +32,7 @@ class ExtensionContractTests(unittest.TestCase):
     def test_converge_is_a_required_core_prerequisite_without_extension_hooks(self) -> None:
         manifest = self.read("extension.yml")
         template = self.read("config-template.yml")
-        self.assertIn('version: "0.4.1"', manifest)
+        self.assertIn('version: "0.4.2"', manifest)
         self.assertIn('speckit_version: ">=0.11.2"', manifest)
         self.assertIn('"speckit.converge"', manifest)
         self.assertNotIn("\nhooks:\n", manifest)
@@ -42,6 +42,37 @@ class ExtensionContractTests(unittest.TestCase):
             self.assertIn('accepted_outcome: "converged"', text)
             self.assertIn("require_current_source: true", text)
             self.assertIn("block_on_tasks_appended: true", text)
+
+    def test_source_fingerprint_excludes_gate_reports_and_drops_head(self) -> None:
+        verify = self.read("commands/verify.md")
+        review = self.read("commands/review.md")
+        ship = self.read("commands/ship.md")
+        manifest = self.read("extension.yml")
+        template = self.read("config-template.yml")
+
+        # verify owns the canonical definition
+        self.assertIn("## Source Fingerprint (Canonical)", verify)
+        self.assertIn("reviewed-scope tree hash", verify)
+        self.assertIn(":(exclude).specify/reports/verify-review-ship/**", verify)
+
+        # HEAD must not define the fingerprint in any command
+        for name, text in (("verify", verify), ("review", review), ("ship", ship)):
+            self.assertNotIn(
+                "HEAD + current diff hash + tasks.md hash",
+                text,
+                f"{name} still fingerprints on HEAD, which a committed gate report invalidates",
+            )
+
+        # review and ship defer to the canonical definition instead of restating it
+        self.assertIn("Source Fingerprint (Canonical)", review)
+        self.assertIn("gate reports excluded", ship)
+
+        # the exclusion list is configurable and published identically in both files
+        for text in (manifest, template):
+            self.assertIn("fingerprint_exclude:", text)
+            self.assertIn('- ".specify/reports/verify-review-ship/**"', text)
+            self.assertIn('- "specs/**/verify.md"', text)
+            self.assertIn('- "specs/**/review.md"', text)
 
     def test_verify_consumes_converge_handoff_without_repeating_completeness_analysis(self) -> None:
         verify = self.read("commands/verify.md")
