@@ -1,17 +1,19 @@
 # Verify Review Ship configuration
 # Copy to .specify/extensions/verify-review-ship/verify-review-ship-config.yml and customize.
 
+# The official /speckit.converge owns spec/plan/tasks-to-code completeness.
+converge:
+  required: true
+  accepted_outcome: "converged"
+  require_current_source: true
+  block_on_tasks_appended: true
+
 orchestration:
-  # Discover the host's subagent/workers before fan-out. If unavailable, commands
-  # use sequential fallback unless require_subagents is true.
   discover_subagents: true
   require_subagents: false
-  # Bounded batches; each validation item still receives one fresh agent.
   max_parallel_agents: 4
 
 verify:
-  after_implement: "optional" # optional | automatic | disabled
-  require_spec_artifacts: true
   require_clean_worktree: false
   run_tests: true
   run_build: true
@@ -24,13 +26,11 @@ verify:
     typecheck: ""
 
 review:
-  include_correctness: true
+  include_runtime_correctness: true
   include_readability: true
   include_architecture: true
   include_security: true
   include_performance: true
-  # One dedicated validator per actionable Constitution item.
-  validate_constitution: true
   severity_blocks_ship: ["Critical", "Important"]
 
 ship:
@@ -40,15 +40,11 @@ ship:
   require_monitoring_notes: true
   default_decision_on_critical: "NO-GO"
   remote: "origin"
-  # Empty means discover from <remote>/HEAD.
   base_branch: ""
-  # Supported: no-ff | ff-only
   merge_strategy: "no-ff"
   require_clean_worktree: true
   rerun_integration_gates: true
-
   learning_gate:
-    # Harvest evidence-backed, reusable learnings before Git integration.
     enabled: true
     require_human_approval: true
     require_evidence: true
@@ -62,14 +58,8 @@ ship:
     adr_directory: "docs/adr"
     backlog_path: "BACKLOG.md"
     context_section_heading: "Project Learnings"
-
   memory:
-    # disabled | propose-only | host-write
-    # Generic Spec Kit has no memory API. host-write requires a documented,
-    # idempotent host adapter; otherwise the item remains pending.
     mode: "propose-only"
-    # External memory is finalized only after the primary remote ref is verified.
-    # Set false only for an adapter with verified rollback/compensation support.
     write_after_verified_merge: true
     required: false
 

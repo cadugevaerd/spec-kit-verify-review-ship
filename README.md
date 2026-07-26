@@ -1,74 +1,55 @@
 # Verify Review Ship for Spec Kit
 
-A Spec Kit extension with post-build quality gates, learning capture, and transactional delivery:
+A Spec Kit extension that adds post-convergence operational verification, technical review, learning capture, and transactional delivery:
 
 - `/speckit.verify-review-ship.verify`
 - `/speckit.verify-review-ship.review`
 - `/speckit.verify-review-ship.ship`
 
-It completes the normal Spec Kit flow:
-
 ```text
-constitution → specify → clarify → plan → checklist → tasks → analyze → implement
-→ verify → review → ship: learn → approve → revalidate → merge → cleanup → summary
+constitution → specify → clarify → plan → checklist → tasks → analyze
+→ implement ⇄ converge → verify → review → ship: learn → approve → revalidate → merge → cleanup
 ```
 
-## Parallel validation
+`/speckit.converge` is a required official Spec Kit command (Spec Kit `>=0.11.2`). Repeat `implement → converge` until it reports **Converged**. This extension registers **3 commands and 0 hooks**: it does not inject or modify the official command.
 
-`verify` and `review` first discover whether their current agent host exposes subagents/workers. If available, they use bounded parallel batches with **one fresh, read-only validator per atomic item**. If unavailable, they run the identical ledger sequentially and report `SEQUENTIAL FALLBACK`.
+## Responsibility Boundaries
 
-`verify` assigns a validator to every artifact, gate, and requirement/task traceability entry. `review` assigns validators to test quality, every enabled review axis, and every actionable item in `.specify/memory/constitution.md`; **one Constitution item equals one validator**.
+| Command | Authority |
+|---|---|
+| `/speckit.converge` | Compares code with spec/plan/tasks, identifies gaps, and appends remaining tasks. |
+| `verify` | Consumes a fresh Converge handoff and runs executable gates: tests, build, lint, typecheck, security, contracts, quickstart, and diff hygiene. |
+| `review` | Reviews runtime correctness, tests, readability, architecture, security, and performance. It does not redo completeness analysis. |
+| `ship` | Requires fresh evidence, governs approved learnings, revalidates changes, and performs safe Git integration. |
 
-Reports record discovery evidence, execution mode, capacity, validator identity, and evidence per item.
+## Operational flow
+
+`verify` blocks when Converge appended tasks, the source changed, or its official outcome is unavailable. `review` requires matching Verify evidence. `ship` requires matching `CONVERGED`, `PASS`, and `APPROVE` evidence and never launches a redundant completeness/reviewer pass.
 
 ## Learning and policy gate
 
-Before the merge transaction, `ship` extracts only **evidence-backed** learnings from current Spec Kit artifacts, `verify`/`review` findings, retries, decisions, and gate results. It removes transient or feature-only noise, checks duplicates, then creates a stable proposal ledger.
-
-```text
-GO (provisional)
-  → collect evidence
-  → classify + deduplicate
-  → show exact diffs and destinations
-  → AWAITING_LEARNING_APPROVAL
-  → apply approved changes on work branch
-  → revalidate the new HEAD
-  → transactional merge
-```
-
-Each candidate has a stable ID and can be approved, rejected, or deferred individually. No candidate is written without explicit approval. If the current HEAD or proposal hash changes, approval is invalidated and the proposal is regenerated.
-
-### Router
+Before merge, `ship` extracts evidence-backed candidates and requires explicit approval. Each candidate can be approved, rejected, or deferred individually. Approved versioned changes receive a dedicated work-branch commit and invalidate stale reports.
 
 | Destination | Use for |
 |---|---|
-| `constitution` | Durable, project-wide, non-negotiable and testable governance. An amendment must use Constitution SemVer and dependent-artifact propagation. |
-| `agent-context` | Repository/runtime operating instructions. Target paths come from the opt-in Spec Kit `agent-context` configuration when present; otherwise from the active integration. Managed blocks are never overwritten. |
-| `adr-docs` | Architecture decisions, technical procedures, and durable project documentation. |
-| `backlog` | Valid improvement or follow-up that is not part of this delivery. |
-| `memory` | Stable, cross-project, non-normative context only. Generic Spec Kit has no memory API, so this is `propose-only` unless the host exposes a documented adapter. |
-| `discard` | Noise, duplicates, transient observations, or feature-local details. It is reported but not persisted. |
+| `constitution` | Durable project-wide, non-negotiable and testable governance. |
+| `agent-context` | Repository/runtime operating instructions; managed blocks are never overwritten. |
+| `adr-docs` | Architecture decisions, procedures, and durable technical documentation. |
+| `backlog` | Valid future work outside this delivery. |
+| `memory` | Stable cross-project, non-normative context; default is `propose-only`. |
+| `discard` | Noise, duplicates, transient observations, or feature-local details. |
 
-The proposal accepts `--approve all`, `--approve LRN-001,LRN-003`, `--reject LRN-002`, and `--defer LRN-004`. Ambiguous or absent approval returns `AWAITING_LEARNING_APPROVAL` without mutating Git state.
-
-Approved versioned changes receive a dedicated work-branch commit. They invalidate stale reports: Constitution changes require `analyze`; all relevant changes require `verify`, `review`, and affected integration gates before a final GO. If revalidation fails, no merge or cleanup occurs.
-
-External memory is intentionally finalized **after** remote primary-ref verification unless the adapter supports rollback. This prevents non-versioned memory from claiming a delivery that failed to merge.
+Constitution or Spec Kit artifact changes require `analyze → converge` before Verify and Review. Memory finalization occurs after remote primary-ref verification by default.
 
 ## Transactional ship
 
-After learning approval and final `GO`, `ship` runs:
-
 ```text
-isolated merge candidate → integration gates → non-force push to primary
-→ remote ref verification → memory finalization → safe cleanup → delivery summary
+fresh evidence → learning proposal → explicit approval → versioned commit
+→ required converge/revalidation → isolated merge → non-force push
+→ remote verification → memory finalization → safe cleanup
 ```
 
-The command discovers the remote primary branch, merges in an isolated temporary worktree, reruns configured gates, pushes the primary branch without force, verifies the remote commit, and only then removes the completed linked worktree and local/remote work branches. Remote work-branch deletion uses an exact expected-ref lease so a concurrently advanced branch is preserved. Dirty, diverged, detached, conflicting, stale-evidence, or concurrently changed states fail closed without deleting work.
-
-Use `$ARGUMENTS` with `--dry-run` to preview the readiness, learning proposal, and exact Git operations through read-only checks. Dry-run does not persist a proposal, edit files, fetch, prune, merge, push, or update/delete refs.
-
-> `ship` merges and cleans Git state; it does not deploy the application or infrastructure.
+`ship --dry-run` performs no proposal, worktree, ref, fetch, merge, push, or cleanup mutation. `ship` merges Git state; it does not deploy applications or infrastructure.
 
 ## Configuration
 
@@ -78,7 +59,7 @@ Copy `config-template.yml` to:
 .specify/extensions/verify-review-ship/verify-review-ship-config.yml
 ```
 
-Use it to require subagents, tune parallel capacity, define test/build/lint/typecheck commands, configure review/Constitution validation, configure learning destinations, and select the remote, base branch, and merge strategy.
+Configure convergence enforcement, executable gates, review axes, learning destinations, remote/base branch, and merge strategy.
 
 ## Installation
 
