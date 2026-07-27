@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.3 - Unreleased
+
+### Fixed
+
+- `verify`, `review`, and `ship` invoke the canonical fingerprint through `bash` rather than
+  relying on the file's executable bit. Source archives/installers may extract
+  `scripts/source-fingerprint.sh` as non-executable; the commands now remain runnable in that
+  package layout. A regression test covers the non-executable extracted-script case.
+
 ## 0.4.2 - 2026-07-26
 
 ### Fixed

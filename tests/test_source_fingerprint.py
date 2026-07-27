@@ -81,6 +81,21 @@ class SourceFingerprintTests(unittest.TestCase):
         after = self.fingerprint()
         self.assertNotEqual(self.value(before, "plan"), self.value(after, "plan"))
 
+    def test_non_executable_packaged_script_runs_via_bash(self) -> None:
+        """Source archives may extract shell scripts without their executable mode bit."""
+        packaged_script = self.tmp / "source-fingerprint.sh"
+        shutil.copyfile(SCRIPT, packaged_script)
+        packaged_script.chmod(0o644)
+
+        result = subprocess.run(
+            ["bash", str(packaged_script), "specs/001-feature"],
+            cwd=self.tmp,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertIn("fingerprint ", result.stdout)
+
     def test_configured_exclusions_are_honoured(self) -> None:
         cfg = self.tmp / "custom.yml"
         cfg.write_text(

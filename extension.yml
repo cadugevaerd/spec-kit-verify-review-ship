@@ -3,7 +3,7 @@ schema_version: "1.0"
 extension:
   id: "verify-review-ship"
   name: "Verify Review Ship"
-  version: "0.4.2"
+  version: "0.4.3"
   description: "Post-convergence operational verification, technical review, learning governance, and transactional delivery."
   category: "process"
   effect: "read-write"
