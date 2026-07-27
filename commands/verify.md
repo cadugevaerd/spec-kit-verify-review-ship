@@ -29,11 +29,11 @@ The official Converge command owns spec/plan/tasks-to-code completeness. This co
 ## Source Fingerprint (Canonical)
 
 The fingerprint identifies the **reviewed content**, never the commit that recorded a gate
-report. It is computed by `scripts/source-fingerprint.sh`, which is the single implementation —
+report. It is computed by `bash scripts/source-fingerprint.sh`, which is the single implementation —
 do not restate the algorithm in prose:
 
 ```bash
-scripts/source-fingerprint.sh <feature-dir> [config.yml]
+bash scripts/source-fingerprint.sh <feature-dir> [config.yml]
 ```
 
 It emits the three components and the combined value:

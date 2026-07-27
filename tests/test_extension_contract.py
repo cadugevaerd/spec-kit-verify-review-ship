@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import stat
 import unittest
 from pathlib import Path
 
@@ -32,7 +33,7 @@ class ExtensionContractTests(unittest.TestCase):
     def test_converge_is_a_required_core_prerequisite_without_extension_hooks(self) -> None:
         manifest = self.read("extension.yml")
         template = self.read("config-template.yml")
-        self.assertIn('version: "0.4.2"', manifest)
+        self.assertIn('version: "0.4.3"', manifest)
         self.assertIn('speckit_version: ">=0.11.2"', manifest)
         self.assertIn('"speckit.converge"', manifest)
         self.assertNotIn("\nhooks:\n", manifest)
@@ -52,10 +53,19 @@ class ExtensionContractTests(unittest.TestCase):
 
         script = ROOT / "scripts" / "source-fingerprint.sh"
         self.assertTrue(script.is_file(), "the canonical fingerprint must be executable code")
+        self.assertTrue(
+            script.stat().st_mode & stat.S_IXUSR,
+            "the repository copy should retain an executable owner bit",
+        )
 
-        # every command defers to that one implementation
+        # Source archives/installers can lose executable mode bits, so every command must invoke
+        # the one implementation through bash rather than relying on direct execution.
         for name, text in (("verify", verify), ("review", review), ("ship", ship)):
-            self.assertIn("source-fingerprint.sh", text, f"{name} must defer to the script")
+            self.assertIn(
+                "bash scripts/source-fingerprint.sh",
+                text,
+                f"{name} must invoke the script through bash",
+            )
 
         # no command may reintroduce a HEAD-based fingerprint
         for name, text in (("verify", verify), ("review", review), ("ship", ship)):

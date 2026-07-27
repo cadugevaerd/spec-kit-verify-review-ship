@@ -50,7 +50,7 @@ Reviewers return exact file:line or gate evidence, severity, and a concrete fix 
 
 Verdict: APPROVE | REQUEST CHANGES | BLOCKED
 Source fingerprint: tree <sha> / work <sha> / plan <sha>
-                    (must match Converge and Verify; computed by scripts/source-fingerprint.sh)
+                    (must match Converge and Verify; computed by bash scripts/source-fingerprint.sh)
 
 ### Test Quality
 ### Runtime Correctness
