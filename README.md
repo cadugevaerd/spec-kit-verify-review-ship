@@ -63,11 +63,11 @@ Configure convergence enforcement, executable gates, review axes, learning desti
 
 ## Installation
 
-### Release v0.4.1
+### Release v0.4.2
 
 ```bash
 specify extension add verify-review-ship \
-  --from https://github.com/cadugevaerd/spec-kit-verify-review-ship/archive/refs/tags/v0.4.1.zip
+  --from https://github.com/cadugevaerd/spec-kit-verify-review-ship/archive/refs/tags/v0.4.2.zip
 specify extension list
 ```
 
